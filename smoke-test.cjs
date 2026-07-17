@@ -56,44 +56,97 @@ const { chromium } = require("playwright");
   });
 
   await page.locator("#newActionsButton").click();
-  const actionSectionTitles = await page.locator("#formRoot .section-header h2").allTextContents();
-  const actionFeelingRowsBefore = await page.locator(".feeling-row").count();
+  const actionHeaders = await page.locator(".actions-table-head [role='columnheader']").allTextContents();
+  const actionRowsBefore = await page.locator(".action-table-row").count();
   const savedAfterBlankActions = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
   if (savedAfterBlankActions !== 1) {
     throw new Error(`Blank actions entry was saved: ${savedAfterBlankActions}`);
   }
-  const expectedActionSections = [
+  const expectedActionHeaders = [
     "Ситуация",
-    "Чувство и образ себя",
+    "Чувство в % + какой я буду",
     "Охранительное действие",
     "Избегающее действие",
-    "Адаптивное поведение",
-    "Заметки"
+    "Адаптивное поведение"
   ];
-  if (expectedActionSections.some((title) => !actionSectionTitles.includes(title))) {
-    throw new Error(`Actions sections are incomplete: ${actionSectionTitles.join(", ")}`);
+  if (JSON.stringify(actionHeaders) !== JSON.stringify(expectedActionHeaders)) {
+    throw new Error(`Actions table headers are incomplete: ${actionHeaders.join(", ")}`);
   }
+  if (actionRowsBefore !== 1) {
+    throw new Error(`New actions entry should have one row: ${actionRowsBefore}`);
+  }
+  const compactNotesOpen = await page.locator("details.compact-notes").evaluate((element) => element.open);
+  if (compactNotesOpen) throw new Error("Empty actions notes should be collapsed");
 
-  await page.locator("button[data-add-feeling]").click();
-  const actionFeelingRowsAfter = await page.locator(".feeling-row").count();
-  await page.locator("input[data-path='fields.feelings.0.name']").fill("Тревога");
-  await page.locator("input[data-path='fields.feelings.0.intensity']").fill("80");
-  await page.locator("input[data-path='fields.feelings.1.name']").fill("Стыд");
-  await page.locator("input[data-path='fields.feelings.1.intensity']").fill("60");
-  await page.locator("textarea[data-path='fields.situation']").fill("Нужно попросить помощи");
-  await page.locator("textarea[data-path='fields.protectiveAction']").fill("Долго наблюдаю за другими");
-  await page.locator("textarea[data-path='fields.avoidantAction']").fill("Откладываю разговор");
-  await page.locator("textarea[data-path='fields.adaptiveBehavior']").fill("Подойти и спросить прямо");
+  await page.locator("button[data-add-action-row]").click();
+  const actionRowsAfter = await page.locator(".action-table-row").count();
+  await page.locator("textarea[data-path='fields.actionRows.0.situation']").fill("Нужно попросить помощи");
+  await page.locator("textarea[data-path='fields.actionRows.0.feelingsAndSelf']").fill("Тревога 80%, стыд 60%\nКаким буду: слабым");
+  await page.locator("textarea[data-path='fields.actionRows.0.protectiveAction']").fill("Долго наблюдаю за другими");
+  await page.locator("textarea[data-path='fields.actionRows.0.avoidantAction']").fill("Откладываю разговор");
+  await page.locator("textarea[data-path='fields.actionRows.0.adaptiveBehavior']").fill("Подойти и спросить прямо");
+  await page.locator("textarea[data-path='fields.actionRows.1.situation']").fill("Нужно отправить сообщение");
+  await page.locator("textarea[data-path='fields.actionRows.1.adaptiveBehavior']").fill("Написать коротко и отправить");
+
+  await page.locator("button[data-add-action-row]").click();
+  await page.locator("button[data-remove-action-row='2']").click();
+  const actionRowsAfterRemove = await page.locator(".action-table-row").count();
 
   const actionMarkdown = await page.evaluate(() => formatEntryMarkdown(getActiveEntry()));
   const actionPrint = await page.evaluate(() => renderPrintEntry(getActiveEntry()));
-  if (!actionMarkdown.includes("Тревога - 80%") || !actionMarkdown.includes("Стыд - 60%")) {
-    throw new Error("Actions feelings were not formatted in Markdown");
+  if (!actionMarkdown.includes("## Строка 1") || !actionMarkdown.includes("Тревога 80%, стыд 60%") || !actionMarkdown.includes("## Строка 2")) {
+    throw new Error("Actions rows were not formatted in Markdown");
   }
-  if (!actionPrint.includes("Охранительное действие") || !actionPrint.includes("Подойти и спросить прямо")) {
+  if (!actionPrint.includes("Строка действий") || !actionPrint.includes("Охранительное действие") || !actionPrint.includes("Написать коротко и отправить")) {
     throw new Error("Actions entry was not included in PDF output");
+  }
+
+  const migratedAction = await page.evaluate(() => normalizeEntry({
+    type: "actions",
+    fields: {
+      situation: "Старая ситуация",
+      feelings: [{ name: "Тревога", intensity: "70" }],
+      selfDefinition: "растерянным",
+      protectiveAction: "Перепроверяю"
+    }
+  }));
+  if (!migratedAction.fields.actionRows[0].feelingsAndSelf.includes("Тревога - 70%") || !migratedAction.fields.actionRows[0].feelingsAndSelf.includes("растерянным")) {
+    throw new Error("Legacy actions entry was not migrated to the compact table");
+  }
+
+  if (process.env.SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({
+      path: path.join(process.env.SCREENSHOT_DIR, "actions-desktop.png"),
+      fullPage: true
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({
+      path: path.join(process.env.SCREENSHOT_DIR, "actions-mobile.png"),
+      fullPage: true
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+
+  if (process.env.PDF_OUTPUT) {
+    fs.mkdirSync(path.dirname(process.env.PDF_OUTPUT), { recursive: true });
+    await page.evaluate(() => {
+      window.__pdfReady = false;
+      window.print = () => {
+        window.__pdfReady = true;
+      };
+    });
+    await page.locator("#printButton").click();
+    await page.waitForFunction(() => window.__pdfReady === true);
+    await page.pdf({
+      path: process.env.PDF_OUTPUT,
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
   }
 
   await page.locator(".entry-card").filter({ hasText: "Smoke entry" }).click();
@@ -177,8 +230,9 @@ const { chromium } = require("playwright");
     savedAfterBlankDiagnostic,
     savedAfterBlankActions,
     diagnosticIntensityCount,
-    actionFeelingRowsBefore,
-    actionFeelingRowsAfter,
+    actionRowsBefore,
+    actionRowsAfter,
+    actionRowsAfterRemove,
     actionExported: actionMarkdown.includes("Адаптивное поведение"),
     rationalizationBefore,
     rationalizationAfter,

@@ -248,72 +248,31 @@ const DIARY_SECTIONS = [
   }
 ];
 
-const ACTION_SECTIONS = [
+const ACTION_COLUMNS = [
   {
-    title: "Ситуация",
-    index: "1",
-    fields: [
-      {
-        key: "situation",
-        label: "Что происходит или что нужно сделать?",
-        hint: "Опиши конкретный момент или задачу, в которой появляется чувство.",
-        rows: 5
-      }
-    ]
+    key: "situation",
+    label: "Ситуация",
+    placeholder: "Что происходит или что нужно сделать?"
   },
   {
-    title: "Чувство и образ себя",
-    index: "2",
-    fields: [
-      {
-        key: "feelings",
-        label: "Какие чувства возникают и насколько они сильные?",
-        hint: "Можно добавить несколько чувств и указать силу каждого в процентах.",
-        kind: "feelings"
-      },
-      {
-        key: "selfDefinition",
-        label: "Каким я себя чувствую или каким боюсь оказаться?",
-        hint: "Например: слабым, глупым, навязчивым, плохим человеком.",
-        rows: 3
-      }
-    ]
+    key: "feelingsAndSelf",
+    label: "Чувство в % + какой я буду",
+    placeholder: "Тревога 80%, стыд 50%\nКаким буду: слабым, глупым..."
   },
   {
-    title: "Охранительное действие",
-    index: "3",
-    fields: [
-      {
-        key: "protectiveAction",
-        label: "Что я делаю, чтобы снизить чувство или обезопасить себя?",
-        hint: "Например: беру кого-то с собой, долго готовлюсь, оправдываюсь, наблюдаю за другими.",
-        rows: 5
-      }
-    ]
+    key: "protectiveAction",
+    label: "Охранительное действие",
+    placeholder: "Что делаю, чтобы снизить чувство?"
   },
   {
-    title: "Избегающее действие",
-    index: "4",
-    fields: [
-      {
-        key: "avoidantAction",
-        label: "Как я избегаю, откладываю или выхожу из ситуации?",
-        hint: "Например: нахожу другие дела, не открываю сообщение, обращаюсь только к знакомым людям.",
-        rows: 5
-      }
-    ]
+    key: "avoidantAction",
+    label: "Избегающее действие",
+    placeholder: "Как избегаю или откладываю?"
   },
   {
-    title: "Адаптивное поведение",
-    index: "5",
-    fields: [
-      {
-        key: "adaptiveBehavior",
-        label: "Что бы я сделал без чувства из пункта 2?",
-        hint: "Запиши прямое действие, которое решает задачу или выражает твоё настоящее решение.",
-        rows: 5
-      }
-    ]
+    key: "adaptiveBehavior",
+    label: "Адаптивное поведение",
+    placeholder: "Что сделал бы без чувства?"
   }
 ];
 
@@ -492,7 +451,7 @@ function load() {
   } catch {
     entries = [];
   }
-  entries = entries.filter(shouldPersistEntry);
+  entries = entries.map(normalizeEntry).filter(shouldPersistEntry);
   activeId = localStorage.getItem(ACTIVE_KEY) || "";
   if (!entries.some((entry) => entry.id === activeId)) {
     activeId = entries[0]?.id || "";
@@ -520,7 +479,7 @@ function createEntry(type, options = {}) {
     tags: "",
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    fields: type === "actions" ? { feelings: [{ name: "", intensity: null }] } : {},
+    fields: type === "actions" ? { actionRows: [createEmptyActionRow()] } : {},
     rationalization: {},
     rationalizationEnabled: false,
     notes: ""
@@ -532,6 +491,40 @@ function createEntry(type, options = {}) {
   if (!options.silent) {
     showToast("Запись создана");
   }
+}
+
+function createEmptyActionRow() {
+  return ACTION_COLUMNS.reduce((row, column) => {
+    row[column.key] = "";
+    return row;
+  }, {});
+}
+
+function normalizeEntry(entry) {
+  const normalized = {
+    ...entry,
+    fields: entry?.fields && typeof entry.fields === "object" ? entry.fields : {},
+    rationalization: entry?.rationalization && typeof entry.rationalization === "object" ? entry.rationalization : {},
+    notes: entry?.notes || ""
+  };
+  if (normalized.type !== "actions") return normalized;
+  if (Array.isArray(normalized.fields.actionRows) && normalized.fields.actionRows.length) return normalized;
+
+  const legacyFeelings = hasPrintableValue(normalized.fields.feelingsText)
+    ? String(normalized.fields.feelingsText)
+    : printValue(normalized.fields.feelings || []);
+  const feelingsAndSelf = [
+    legacyFeelings,
+    normalized.fields.selfDefinition ? `Каким буду: ${normalized.fields.selfDefinition}` : ""
+  ].filter(Boolean).join("\n");
+  normalized.fields.actionRows = [{
+    situation: normalized.fields.situation || "",
+    feelingsAndSelf,
+    protectiveAction: normalized.fields.protectiveAction || "",
+    avoidantAction: normalized.fields.avoidantAction || "",
+    adaptiveBehavior: normalized.fields.adaptiveBehavior || ""
+  }];
+  return normalized;
 }
 
 function duplicateActive() {
@@ -650,18 +643,63 @@ function renderDiary(entry) {
 }
 
 function renderActions(entry) {
-  const notice = `
-    <div class="notice">
-      <h2>Смотри на реальные действия</h2>
-      <ul>
-        <li>Охранительное действие помогает снизить чувство, оставаясь рядом с ситуацией.</li>
-        <li>Избегающее действие откладывает ситуацию, уводит от неё или не даёт действовать прямо.</li>
-        <li>Адаптивное поведение - то, что ты выбрал бы без чувства из пункта 2.</li>
-      </ul>
+  const rows = getActionRows(entry);
+  return `
+    <section class="actions-sheet">
+      <div class="actions-sheet-heading">
+        <div>
+          <h2>Быстрый разбор действий</h2>
+          <p class="hint">Одна ситуация - одна строка. Можно заполнять короткими фразами.</p>
+        </div>
+        <span class="action-row-count">Строк: ${rows.length}</span>
+      </div>
+      <div class="actions-table" role="table" aria-label="Охранительные и избегающие действия">
+        <div class="actions-table-head" role="row">
+          ${ACTION_COLUMNS.map((column) => `<div role="columnheader">${escapeHTML(column.label)}</div>`).join("")}
+          <span aria-hidden="true"></span>
+        </div>
+        <div class="actions-table-body">
+          ${rows.map((row, index) => renderActionRow(row, index, rows.length)).join("")}
+        </div>
+      </div>
+      <button class="button add-action-row" type="button" data-add-action-row>Добавить строку</button>
+    </section>
+    ${renderCompactNotes(entry)}
+  `;
+}
+
+function renderActionRow(row, index, rowCount) {
+  return `
+    <div class="action-table-row" role="row">
+      ${ACTION_COLUMNS.map((column) => `
+        <label class="action-table-cell" role="cell">
+          <span class="action-cell-label">${escapeHTML(column.label)}</span>
+          <textarea rows="2" data-path="fields.actionRows.${index}.${escapeAttr(column.key)}" placeholder="${escapeAttr(column.placeholder)}">${escapeHTML(row?.[column.key] || "")}</textarea>
+        </label>
+      `).join("")}
+      <button class="icon-button remove-action-row" type="button" data-remove-action-row="${index}" title="Удалить строку" aria-label="Удалить строку ${index + 1}" ${rowCount === 1 ? "disabled" : ""}>&times;</button>
     </div>
   `;
-  const sections = ACTION_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
-  return notice + sections + renderNotes(entry);
+}
+
+function getActionRows(entry) {
+  const rows = entry?.fields?.actionRows;
+  return Array.isArray(rows) && rows.length ? rows : [createEmptyActionRow()];
+}
+
+function renderCompactNotes(entry) {
+  return `
+    <details class="compact-notes" ${hasPrintableValue(entry.notes) ? "open" : ""}>
+      <summary>
+        <span>Заметки</span>
+        <small>необязательно</small>
+      </summary>
+      <label class="field">
+        <span>Впечатления и инсайты</span>
+        <textarea rows="4" data-path="notes" placeholder="Что хочется запомнить или обсудить с психологом?">${escapeHTML(entry.notes || "")}</textarea>
+      </label>
+    </details>
+  `;
 }
 
 function renderNotes(entry) {
@@ -734,10 +772,6 @@ function renderSection(section, values, rootPath) {
 }
 
 function renderField(field, value = "", path) {
-  if (field.kind === "feelings") {
-    return renderFeelingsField(field, value, path);
-  }
-
   if (field.kind === "range") {
     const numberValue = value === undefined || value === "" || Number.isNaN(Number(value)) ? 50 : Number(value);
     return `
@@ -778,44 +812,6 @@ function renderField(field, value = "", path) {
   `;
 }
 
-function renderFeelingsField(field, value, path) {
-  const feelings = Array.isArray(value) && value.length
-    ? value
-    : [{ name: "", intensity: null }];
-  return `
-    <div class="field">
-      <span>${escapeHTML(field.label)}</span>
-      ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
-      <div class="feelings-editor">
-        ${feelings.map((feeling, index) => {
-          const intensity = feeling?.intensity === null || feeling?.intensity === undefined || feeling?.intensity === ""
-            ? 50
-            : Number(feeling.intensity);
-          return `
-            <div class="feeling-row">
-              <label class="field feeling-name">
-                <span>Чувство ${index + 1}</span>
-                <input type="text" value="${escapeAttr(feeling?.name || "")}" data-path="${escapeAttr(`${path}.${index}.name`)}" autocomplete="off" placeholder="например, тревога">
-              </label>
-              <label class="field feeling-intensity">
-                <span>Сила чувства</span>
-                <div class="range-row">
-                  <input type="range" min="0" max="100" step="1" value="${intensity}" data-path="${escapeAttr(`${path}.${index}.intensity`)}">
-                  <output class="range-value">${intensity}%</output>
-                </div>
-              </label>
-              ${feelings.length > 1 ? `
-                <button class="icon-button remove-feeling" type="button" data-remove-feeling-index="${index}" title="Удалить чувство" aria-label="Удалить чувство ${index + 1}">&times;</button>
-              ` : ""}
-            </div>
-          `;
-        }).join("")}
-      </div>
-      <button class="button add-feeling" type="button" data-add-feeling>Добавить чувство</button>
-    </div>
-  `;
-}
-
 function renderRadio(path, value, label, current) {
   const id = `${path}-${value}`.replace(/[^a-z0-9_-]/gi, "-");
   return `
@@ -840,7 +836,7 @@ function handleFormInput(event) {
   const entry = getActiveEntry();
   if (!entry) return;
 
-  ensureFeelingsArray(entry, control.dataset.path);
+  ensureActionRows(entry, control.dataset.path);
   setPath(entry, control.dataset.path, getControlValue(control));
   if (control.type === "range") {
     const output = control.parentElement.querySelector("output");
@@ -855,7 +851,7 @@ function handleFormChange(event) {
   const entry = getActiveEntry();
   if (!entry) return;
 
-  ensureFeelingsArray(entry, control.dataset.path);
+  ensureActionRows(entry, control.dataset.path);
   setPath(entry, control.dataset.path, getControlValue(control));
   touchAndSave(entry);
 
@@ -865,18 +861,18 @@ function handleFormChange(event) {
 }
 
 function handleFormClick(event) {
-  const addFeeling = event.target.closest("[data-add-feeling]");
-  const removeFeeling = event.target.closest("[data-remove-feeling-index]");
-  if (addFeeling || removeFeeling) {
+  const addActionRow = event.target.closest("[data-add-action-row]");
+  const removeActionRow = event.target.closest("[data-remove-action-row]");
+  if (addActionRow || removeActionRow) {
     const entry = getActiveEntry();
     if (!entry) return;
-    ensureFeelingsArray(entry, "fields.feelings.0.name");
-    if (addFeeling) {
-      entry.fields.feelings.push({ name: "", intensity: null });
+    ensureActionRows(entry, "fields.actionRows.0.situation");
+    if (addActionRow) {
+      entry.fields.actionRows.push(createEmptyActionRow());
     } else {
-      const index = Number(removeFeeling.dataset.removeFeelingIndex);
-      if (Number.isInteger(index) && entry.fields.feelings.length > 1) {
-        entry.fields.feelings.splice(index, 1);
+      const index = Number(removeActionRow.dataset.removeActionRow);
+      if (Number.isInteger(index) && entry.fields.actionRows.length > 1) {
+        entry.fields.actionRows.splice(index, 1);
       }
     }
     touchAndSave(entry);
@@ -893,16 +889,16 @@ function handleFormClick(event) {
   renderEditor();
 }
 
-function ensureFeelingsArray(entry, path) {
-  if (!String(path || "").startsWith("fields.feelings.")) return;
+function ensureActionRows(entry, path) {
+  if (!String(path || "").startsWith("fields.actionRows.")) return;
   if (!entry.fields || typeof entry.fields !== "object") entry.fields = {};
-  if (!Array.isArray(entry.fields.feelings)) {
-    entry.fields.feelings = [{ name: "", intensity: null }];
+  if (!Array.isArray(entry.fields.actionRows)) {
+    entry.fields.actionRows = [createEmptyActionRow()];
   }
-  const match = String(path).match(/^fields\.feelings\.(\d+)\.name$/);
-  const feeling = match ? entry.fields.feelings[Number(match[1])] : null;
-  if (feeling && (feeling.intensity === null || feeling.intensity === undefined || feeling.intensity === "")) {
-    feeling.intensity = 50;
+  const match = String(path).match(/^fields\.actionRows\.(\d+)\./);
+  const index = match ? Number(match[1]) : 0;
+  while (entry.fields.actionRows.length <= index) {
+    entry.fields.actionRows.push(createEmptyActionRow());
   }
 }
 
@@ -1011,7 +1007,7 @@ function importBackup(event) {
       const importedEntries = Array.isArray(parsed) ? parsed : parsed.entries;
       if (!Array.isArray(importedEntries)) throw new Error("No entries");
       const existingIds = new Set(entries.map((entry) => entry.id));
-      const normalized = importedEntries.map((entry) => ({
+      const normalized = importedEntries.map((entry) => normalizeEntry({
         ...entry,
         id: existingIds.has(entry.id) ? createId() : entry.id || createId(),
         fields: entry.fields || {},
@@ -1042,8 +1038,11 @@ function formatEntryMarkdown(entry) {
   if (entry.tags) lines.push(`Теги: ${entry.tags}`);
   lines.push("");
 
-  const sections = getSectionsForEntry(entry);
-  appendSectionsMarkdown(lines, sections, entry.fields);
+  if (entry.type === "actions") {
+    appendActionRowsMarkdown(lines, getActionRows(entry));
+  } else {
+    appendSectionsMarkdown(lines, getSectionsForEntry(entry), entry.fields);
+  }
 
   if (entry.type === "diary") {
     const decision = entry.fields.realProblemSolved;
@@ -1086,15 +1085,28 @@ function appendNotesMarkdown(lines, entry) {
   lines.push("");
 }
 
+function appendActionRowsMarkdown(lines, rows) {
+  rows.filter(hasPrintableValue).forEach((row, index) => {
+    lines.push(`## Строка ${index + 1}`);
+    lines.push("");
+    ACTION_COLUMNS.forEach((column) => {
+      lines.push(`**${column.label}**`);
+      lines.push("");
+      lines.push(hasPrintableValue(row[column.key]) ? String(row[column.key]) : "-");
+      lines.push("");
+    });
+  });
+}
+
 function getSectionsForEntry(entry) {
   if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
-  if (entry.type === "actions") return ACTION_SECTIONS;
   return DIARY_SECTIONS;
 }
 
 function renderPrintEntry(entry) {
-  const sections = getSectionsForEntry(entry);
-  const body = renderPrintSections(sections, entry.fields);
+  const body = entry.type === "actions"
+    ? renderPrintActionRows(getActionRows(entry))
+    : renderPrintSections(getSectionsForEntry(entry), entry.fields);
   const rationalization = entry.type === "diary" && (entry.rationalizationEnabled || entry.fields.realProblemSolved === "no")
     ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization)
     : "";
@@ -1185,6 +1197,30 @@ function renderPrintSections(sections, values) {
             <div class="print-field">
               <div class="print-field-label">${escapeHTML(field.label)}</div>
               <div class="print-field-value">${escapeHTML(printValue(value))}</div>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }).join("");
+}
+
+function renderPrintActionRows(rows) {
+  return rows.filter(hasPrintableValue).map((row, index) => {
+    const fields = ACTION_COLUMNS
+      .map((column) => ({ column, value: row[column.key] }))
+      .filter(({ value }) => hasPrintableValue(value));
+    return `
+      <section class="print-section">
+        <div class="print-section-header">
+          <span class="print-step">${index + 1}</span>
+          <h2>Строка действий</h2>
+        </div>
+        <div class="print-fields">
+          ${fields.map(({ column, value }) => `
+            <div class="print-field">
+              <div class="print-field-label">${escapeHTML(column.label)}</div>
+              <div class="print-field-value">${escapeHTML(String(value))}</div>
             </div>
           `).join("")}
         </div>
