@@ -15,6 +15,14 @@ const TYPE_META = {
     label: "Диагностика",
     defaultTitle: "Новая диагностика"
   },
+  scenario: {
+    label: "Сценарий",
+    defaultTitle: "Новый сценарий"
+  },
+  report: {
+    label: "Отчёт",
+    defaultTitle: "Новый отчёт"
+  },
   actions: {
     label: "Охранительные действия",
     defaultTitle: "Новые действия"
@@ -264,6 +272,233 @@ const DIARY_SECTIONS = [
   }
 ];
 
+const SCENARIO_SECTIONS = [
+  {
+    title: "Задача и безопасность",
+    index: "01",
+    tone: "coral",
+    fields: [
+      {
+        key: "purpose",
+        label: "Зачем я это делаю?",
+        hint: "Какую реальную задачу решаю и чему хочу научить мозг?",
+        rows: 3
+      },
+      {
+        key: "triggerSituation",
+        label: "Какой триггер или ситуация?",
+        hint: "Опиши конкретно, без общей формулировки.",
+        rows: 4
+      },
+      {
+        key: "safetyRationale",
+        label: "Почему это страшно, но безопасно?",
+        hint: "Отдели чувство опасности от реального риска.",
+        rows: 4
+      },
+      {
+        key: "stopConditions",
+        label: "При каких реальных условиях я остановлюсь?",
+        hint: "Только объективные границы безопасности, не сила чувства.",
+        rows: 3
+      },
+      {
+        key: "expectedFeeling",
+        label: "Какое чувство ожидаю?",
+        rows: 2
+      },
+      {
+        key: "expectedIntensity",
+        label: "Ожидаемая сила чувства",
+        kind: "range"
+      }
+    ]
+  },
+  {
+    title: "Координаты",
+    index: "02",
+    tone: "yellow",
+    fields: [
+      {
+        key: "plannedTime",
+        label: "Во сколько начинаю?",
+        kind: "time"
+      },
+      {
+        key: "place",
+        label: "Где это происходит?",
+        rows: 2
+      },
+      {
+        key: "minimumDuration",
+        label: "Минимальная длительность",
+        kind: "number",
+        min: 1,
+        suffix: "мин"
+      },
+      {
+        key: "preparation",
+        label: "Что подготовлю заранее?",
+        hint: "Только то, что нужно для задачи, а не для успокоения чувства.",
+        rows: 3
+      }
+    ]
+  },
+  {
+    title: "Маршрут",
+    index: "03",
+    tone: "blue",
+    fields: [
+      {
+        key: "steps",
+        label: "Что я буду делать шаг за шагом?",
+        hint: "Один наблюдаемый шаг на строку: действие, фраза, ожидание, переход.",
+        kind: "ordered-list"
+      }
+    ]
+  },
+  {
+    title: "Без спасения от чувства",
+    index: "04",
+    tone: "ink",
+    fields: [
+      {
+        key: "noDoActions",
+        label: "Что я НЕ буду делать?",
+        hint: "Телефон, оправдания, спешка, избегание взгляда и любые микро-побеги.",
+        kind: "checklist"
+      }
+    ]
+  },
+  {
+    title: "Как проживаю чувство",
+    index: "05",
+    tone: "mint",
+    fields: [
+      {
+        key: "bodyFocus",
+        label: "На каких телесных ощущениях удерживаю внимание?",
+        hint: "Что наблюдаю во время сканера вместо внутренних успокоений?",
+        rows: 4
+      },
+      {
+        key: "physicalAmplification",
+        label: "Как физически усилю реакцию?",
+        hint: "Только телесным действием, без усиления фантазией и мыслями.",
+        rows: 3
+      },
+      {
+        key: "endingAction",
+        label: "Как рационально завершу ситуацию?",
+        rows: 3
+      },
+      {
+        key: "completionCriteria",
+        label: "Когда сценарий считается выполненным?",
+        hint: "Критерий поведения и времени, а не обязательное снижение чувства до нуля.",
+        rows: 3
+      }
+    ]
+  }
+];
+
+const REPORT_SECTIONS = [
+  {
+    title: "Связь с планом",
+    index: "01",
+    fields: [
+      {
+        key: "linkedScenarioId",
+        label: "По какому сценарию?",
+        kind: "scenario-select"
+      },
+      {
+        key: "planChanges",
+        label: "Что изменилось относительно плана?",
+        hint: "Погода, место, одежда, время и другие фактические изменения.",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Как всё происходило",
+    index: "02",
+    fields: [
+      {
+        key: "actualEvents",
+        label: "Хронология прохождения",
+        hint: "Один эпизод на строку: что сделал, что почувствовал, что произошло дальше.",
+        kind: "ordered-list"
+      },
+      {
+        key: "actualDuration",
+        label: "Сколько длилось?",
+        kind: "number",
+        min: 1,
+        suffix: "мин"
+      }
+    ]
+  },
+  {
+    title: "Динамика чувства",
+    index: "03",
+    fields: [
+      { key: "feelingBefore", label: "До начала", kind: "range" },
+      { key: "feelingPeak", label: "На пике", kind: "range" },
+      { key: "feelingAfter", label: "В конце", kind: "range" },
+      {
+        key: "bodySensations",
+        label: "Что происходило в теле и как я это усиливал?",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Охранительное и избегающее поведение",
+    index: "04",
+    fields: [
+      {
+        key: "avoidedActions",
+        label: "Что удалось НЕ делать?",
+        rows: 4
+      },
+      {
+        key: "escapeSlips",
+        label: "Какие микро-побеги всё-таки появились?",
+        hint: "Без самокритики: телефон, спешка, оправдание, закрытая поза, заполнение пауз.",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Факты и вывод",
+    index: "05",
+    fields: [
+      {
+        key: "observedFacts",
+        label: "Что реально происходило и как реагировали люди?",
+        hint: "Наблюдаемые факты отдельно от догадок.",
+        rows: 5
+      },
+      {
+        key: "result",
+        label: "Чем закончилась ситуация?",
+        rows: 4
+      },
+      {
+        key: "learning",
+        label: "Что нового узнал мозг?",
+        rows: 4
+      },
+      {
+        key: "nextAttempt",
+        label: "Что повторю или изменю в следующий раз?",
+        rows: 4
+      }
+    ]
+  }
+];
+
 const ACTION_COLUMNS = [
   {
     key: "situation",
@@ -426,6 +661,7 @@ function bindElements() {
   elements.titleInput = document.getElementById("titleInput");
   elements.registryTitle = document.getElementById("registryTitle");
   elements.entryTypeLabel = document.getElementById("entryTypeLabel");
+  elements.entryDateLabel = document.getElementById("entryDateLabel");
   elements.entryDateInput = document.getElementById("entryDateInput");
   elements.tagsInput = document.getElementById("tagsInput");
   elements.entryMetaRow = document.getElementById("entryMetaRow");
@@ -440,10 +676,14 @@ function bindElements() {
 function bindEvents() {
   document.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+  document.getElementById("newScenarioButton").addEventListener("click", () => createEntry("scenario"));
+  document.getElementById("newReportButton").addEventListener("click", () => createEntry("report"));
   document.getElementById("actionsPageButton").addEventListener("click", () => openRegistry("actions"));
   document.getElementById("triggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+  document.getElementById("emptyNewScenarioButton").addEventListener("click", () => createEntry("scenario"));
+  document.getElementById("emptyNewReportButton").addEventListener("click", () => createEntry("report"));
   document.getElementById("emptyActionsPageButton").addEventListener("click", () => openRegistry("actions"));
   document.getElementById("emptyTriggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("duplicateButton").addEventListener("click", duplicateActive);
@@ -530,7 +770,7 @@ function save() {
 }
 
 function createEntry(type, options = {}) {
-  if (type !== "diary" && type !== "diagnostic") return;
+  if (!TYPE_META[type] || type === "actions") return;
   discardEmptyEntries();
   discardEmptyRegistryRows();
   activeView = "entry";
@@ -538,12 +778,15 @@ function createEntry(type, options = {}) {
   const entry = {
     id: createId(),
     type,
-    title: TYPE_META[type].defaultTitle,
-    date: toDateInputValue(now),
-    tags: "",
+    title: options.title || TYPE_META[type].defaultTitle,
+    date: options.date || toDateInputValue(now),
+    tags: options.tags || "",
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    fields: {},
+    fields: {
+      ...createDefaultEntryFields(type),
+      ...(options.fields || {})
+    },
     rationalization: {},
     rationalizationEnabled: false,
     notes: ""
@@ -553,8 +796,14 @@ function createEntry(type, options = {}) {
   save();
   render();
   if (!options.silent) {
-    showToast("Запись создана");
+    showToast(options.message || "Запись создана");
   }
+}
+
+function createDefaultEntryFields(type) {
+  if (type === "scenario") return { steps: [""], noDoActions: [""] };
+  if (type === "report") return { actualEvents: [""] };
+  return {};
 }
 
 function openRegistry(view) {
@@ -611,6 +860,15 @@ function normalizeEntry(entry) {
     rationalization: entry?.rationalization && typeof entry.rationalization === "object" ? entry.rationalization : {},
     notes: entry?.notes || ""
   };
+  if (normalized.type === "scenario") {
+    if (!Array.isArray(normalized.fields.steps)) normalized.fields.steps = [""];
+    if (!Array.isArray(normalized.fields.noDoActions)) normalized.fields.noDoActions = [""];
+    return normalized;
+  }
+  if (normalized.type === "report") {
+    if (!Array.isArray(normalized.fields.actualEvents)) normalized.fields.actualEvents = [""];
+    return normalized;
+  }
   if (normalized.type !== "actions") return normalized;
   if (Array.isArray(normalized.fields.actionRows) && normalized.fields.actionRows.length) return normalized;
 
@@ -740,11 +998,14 @@ function renderEditor() {
   document.getElementById("duplicateButton").classList.remove("hidden");
   document.getElementById("deleteButton").classList.remove("hidden");
   elements.titleInput.value = entry.title || TYPE_META[entry.type].defaultTitle;
+  elements.entryDateLabel.textContent = getEntryDateLabel(entry.type);
   elements.entryDateInput.value = entry.date || "";
   elements.tagsInput.value = entry.tags || "";
   const renderers = {
     diary: renderDiary,
-    diagnostic: renderDiagnostic
+    diagnostic: renderDiagnostic,
+    scenario: renderScenario,
+    report: renderReport
   };
   elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
 }
@@ -776,6 +1037,138 @@ function renderDiary(entry) {
   `;
   const diary = DIARY_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
   return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
+}
+
+function renderScenario(entry) {
+  const relatedReports = getPersistedEntries().filter((item) => item.type === "report" && item.fields.linkedScenarioId === entry.id).length;
+  return `
+    <div class="protocol-intro scenario-intro">
+      <div>
+        <p class="protocol-kicker">До экспозиции</p>
+        <h2>Маршрут без импровизации</h2>
+        <p>Опиши наблюдаемые действия заранее: где начинаешь, что говоришь, чего не делаешь и сколько остаёшься в ситуации.</p>
+      </div>
+      <div class="protocol-intro-actions">
+        <span class="protocol-count">Отчётов: ${relatedReports}</span>
+        <button class="button primary" type="button" data-create-report-from-scenario>Создать отчёт</button>
+      </div>
+    </div>
+    <div class="scenario-builder">
+      ${SCENARIO_SECTIONS.map((section) => renderProtocolSection(section, entry, "scenario")).join("")}
+    </div>
+    ${renderNotes(entry)}
+  `;
+}
+
+function renderReport(entry) {
+  return `
+    <div class="protocol-intro report-intro">
+      <div>
+        <p class="protocol-kicker">После экспозиции</p>
+        <h2>Факты вместо общей оценки</h2>
+        <p>Восстанови ход событий по эпизодам: действие, чувство, телесная реакция, реальные последствия и следующий шаг.</p>
+      </div>
+    </div>
+    <div class="report-builder">
+      ${REPORT_SECTIONS.map((section) => renderProtocolSection(section, entry, "report")).join("")}
+    </div>
+    ${renderNotes(entry)}
+  `;
+}
+
+function renderProtocolSection(section, entry, variant) {
+  const fields = section.fields.map((field) => renderProtocolField(field, entry, variant)).join("");
+  const sectionClass = variant === "scenario"
+    ? `protocol-section scenario-phase tone-${section.tone || "coral"}`
+    : "protocol-section report-phase";
+  return `
+    <section class="${sectionClass}" data-protocol-step="${escapeAttr(section.index)}">
+      <div class="protocol-section-header">
+        <span class="protocol-step">${escapeHTML(section.index)}</span>
+        <h2>${escapeHTML(section.title)}</h2>
+      </div>
+      <div class="protocol-fields ${variant === "report" && section.index === "03" ? "feeling-curve-fields" : ""}">
+        ${fields}
+      </div>
+    </section>
+  `;
+}
+
+function renderProtocolField(field, entry, variant) {
+  if (field.kind === "ordered-list" || field.kind === "checklist") {
+    return renderEntryListField(entry, field);
+  }
+  if (field.kind === "scenario-select") {
+    return renderScenarioSelect(entry);
+  }
+  const className = variant === "report" && field.kind === "range" ? " protocol-rating" : "";
+  return `<div class="protocol-field${className}" data-field-key="${escapeAttr(field.key)}">${renderField(field, entry.fields[field.key], `fields.${field.key}`)}</div>`;
+}
+
+function renderEntryListField(entry, field) {
+  const storedItems = Array.isArray(entry.fields[field.key]) ? entry.fields[field.key] : [];
+  const items = storedItems.length ? storedItems : [""];
+  const isChecklist = field.kind === "checklist";
+  return `
+    <div class="protocol-field entry-list-field ${isChecklist ? "no-do-list" : "route-list"}" data-field-key="${escapeAttr(field.key)}">
+      <div class="entry-list-heading">
+        <div>
+          <p class="field-label">${escapeHTML(field.label)}</p>
+          ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+        </div>
+        <span>${items.filter(hasPrintableValue).length}</span>
+      </div>
+      <div class="entry-list-items">
+        ${items.map((item, index) => `
+          <div class="entry-list-item">
+            <span class="entry-list-index">${isChecklist ? "не" : index + 1}</span>
+            <textarea rows="${isChecklist ? 2 : 3}" data-path="fields.${escapeAttr(field.key)}.${index}" placeholder="${isChecklist ? "Какое действие исключаю?" : "Что конкретно делаю на этом шаге?"}">${escapeHTML(item || "")}</textarea>
+            <div class="entry-list-controls" aria-label="Управление строкой ${index + 1}">
+              <button class="list-icon-button" type="button" data-move-entry-list="-1" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить выше" aria-label="Переместить строку ${index + 1} выше" ${index === 0 ? "disabled" : ""}>↑</button>
+              <button class="list-icon-button" type="button" data-move-entry-list="1" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить ниже" aria-label="Переместить строку ${index + 1} ниже" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
+              <button class="list-icon-button danger" type="button" data-remove-entry-list data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Удалить строку" aria-label="Удалить строку ${index + 1}">×</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+      <button class="button add-entry-list-item" type="button" data-add-entry-list="${escapeAttr(field.key)}">${isChecklist ? "Добавить запрет" : (field.key === "actualEvents" ? "Добавить эпизод" : "Добавить шаг")}</button>
+    </div>
+  `;
+}
+
+function renderScenarioSelect(report) {
+  const scenarios = getPersistedEntries()
+    .filter((entry) => entry.type === "scenario")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const linkedId = report.fields.linkedScenarioId || "";
+  const linked = scenarios.find((entry) => entry.id === linkedId);
+  return `
+    <div class="protocol-field scenario-link-field" data-field-key="linkedScenarioId">
+      <label class="field">
+        <span>По какому сценарию?</span>
+        <select data-path="fields.linkedScenarioId">
+          <option value="">Без привязки</option>
+          ${scenarios.map((scenario) => `<option value="${escapeAttr(scenario.id)}" ${scenario.id === linkedId ? "selected" : ""}>${escapeHTML(scenario.title || TYPE_META.scenario.defaultTitle)} · ${escapeHTML(formatDate(scenario.date))}</option>`).join("")}
+        </select>
+      </label>
+      ${linked ? renderLinkedScenarioPreview(linked) : `<p class="scenario-link-empty">${scenarios.length ? "Выбери сценарий, чтобы видеть план во время отчёта." : "Сценариев пока нет. Отчёт можно заполнить и без привязки."}</p>`}
+    </div>
+  `;
+}
+
+function renderLinkedScenarioPreview(scenario) {
+  const noDoActions = (scenario.fields.noDoActions || []).filter(hasPrintableValue);
+  return `
+    <aside class="linked-scenario-preview">
+      <div>
+        <p class="linked-scenario-label">Исходный план</p>
+        <h3>${escapeHTML(scenario.title || TYPE_META.scenario.defaultTitle)}</h3>
+        ${scenario.fields.purpose ? `<p>${escapeHTML(scenario.fields.purpose)}</p>` : ""}
+      </div>
+      ${noDoActions.length ? `<div class="linked-no-do">${noDoActions.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}</div>` : ""}
+      <button class="button" type="button" data-open-entry-id="${escapeAttr(scenario.id)}">Открыть сценарий</button>
+    </aside>
+  `;
 }
 
 function renderActionsRegistry() {
@@ -950,6 +1343,17 @@ function renderField(field, value = "", path) {
     `;
   }
 
+  if (field.kind === "time" || field.kind === "number") {
+    const input = `<input type="${field.kind}" value="${escapeAttr(value ?? "")}" data-path="${escapeAttr(path)}" ${field.min !== undefined ? `min="${escapeAttr(field.min)}"` : ""}>`;
+    return `
+      <label class="field">
+        <span>${escapeHTML(field.label)}</span>
+        ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+        ${field.suffix ? `<span class="suffixed-input">${input}<span>${escapeHTML(field.suffix)}</span></span>` : input}
+      </label>
+    `;
+  }
+
   return `
     <label class="field">
       <span>${escapeHTML(field.label)}</span>
@@ -990,6 +1394,7 @@ function handleFormInput(event) {
   const entry = getActiveEntry();
   if (!entry) return;
 
+  ensureEntryListForPath(entry, control.dataset.path);
   ensureActionRows(entry, control.dataset.path);
   setPath(entry, control.dataset.path, getControlValue(control));
   if (control.type === "range") {
@@ -1010,11 +1415,12 @@ function handleFormChange(event) {
   const entry = getActiveEntry();
   if (!entry) return;
 
+  ensureEntryListForPath(entry, control.dataset.path);
   ensureActionRows(entry, control.dataset.path);
   setPath(entry, control.dataset.path, getControlValue(control));
   touchAndSave(entry);
 
-  if (control.type === "radio" || control.type === "checkbox") {
+  if (control.type === "radio" || control.type === "checkbox" || control.dataset.path === "fields.linkedScenarioId") {
     renderEditorPreservingViewport();
   }
 }
@@ -1040,6 +1446,51 @@ function handleFormClick(event) {
     return;
   }
 
+  const addEntryList = event.target.closest("[data-add-entry-list]");
+  const removeEntryList = event.target.closest("[data-remove-entry-list]");
+  const moveEntryList = event.target.closest("[data-move-entry-list]");
+  if (addEntryList || removeEntryList || moveEntryList) {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    const control = addEntryList || removeEntryList || moveEntryList;
+    const key = addEntryList?.dataset.addEntryList || control.dataset.listKey;
+    if (!isEntryListKey(entry.type, key)) return;
+    if (!Array.isArray(entry.fields[key])) entry.fields[key] = [];
+    const items = entry.fields[key];
+    if (addEntryList) {
+      items.push("");
+    } else {
+      const index = Number(control.dataset.listIndex);
+      if (!Number.isInteger(index) || index < 0 || index >= items.length) return;
+      if (removeEntryList) {
+        items.splice(index, 1);
+      } else {
+        const targetIndex = index + Number(moveEntryList.dataset.moveEntryList);
+        if (targetIndex < 0 || targetIndex >= items.length) return;
+        [items[index], items[targetIndex]] = [items[targetIndex], items[index]];
+      }
+    }
+    touchAndSave(entry);
+    renderEditorPreservingViewport();
+    return;
+  }
+
+  if (event.target.closest("[data-create-report-from-scenario]")) {
+    createReportFromScenario();
+    return;
+  }
+
+  const openEntry = event.target.closest("[data-open-entry-id]");
+  if (openEntry) {
+    const entry = entries.find((item) => item.id === openEntry.dataset.openEntryId);
+    if (!entry) return;
+    activeView = "entry";
+    activeId = entry.id;
+    save();
+    render();
+    return;
+  }
+
   const chip = event.target.closest("[data-chip-path]");
   if (!chip) return;
   const entry = getActiveEntry();
@@ -1047,6 +1498,40 @@ function handleFormClick(event) {
   setPath(entry, chip.dataset.chipPath, chip.dataset.chipValue);
   touchAndSave(entry);
   renderEditor();
+}
+
+function createReportFromScenario() {
+  const scenario = getActiveEntry();
+  if (!scenario || scenario.type !== "scenario") return;
+  if (!shouldPersistEntry(scenario)) {
+    showToast("Сначала опиши сценарий");
+    return;
+  }
+  const baseTitle = scenario.title && scenario.title !== TYPE_META.scenario.defaultTitle
+    ? scenario.title
+    : (scenario.fields.triggerSituation || "сценарий");
+  const reportSubject = baseTitle.replace(/^Сценарий:\s*/i, "");
+  createEntry("report", {
+    title: `Отчёт: ${reportSubject}`,
+    tags: scenario.tags,
+    fields: { linkedScenarioId: scenario.id },
+    message: "Отчёт связан со сценарием"
+  });
+}
+
+function ensureEntryListForPath(entry, path) {
+  const match = String(path || "").match(/^fields\.(steps|noDoActions|actualEvents)\.(\d+)$/);
+  if (!match || !isEntryListKey(entry.type, match[1])) return;
+  const key = match[1];
+  const index = Number(match[2]);
+  if (!Array.isArray(entry.fields[key])) entry.fields[key] = [];
+  while (entry.fields[key].length <= index) entry.fields[key].push("");
+}
+
+function isEntryListKey(type, key) {
+  if (type === "scenario") return key === "steps" || key === "noDoActions";
+  if (type === "report") return key === "actualEvents";
+  return false;
 }
 
 function updateRegistryControl(control, clampPercent) {
@@ -1239,14 +1724,27 @@ function importBackup(event) {
       if (!importedEntries.length && !importedActionRows.length && !importedTriggerRows.length) {
         throw new Error("No data");
       }
-      const existingIds = new Set(entries.map((entry) => entry.id));
-      const normalized = importedEntries.map((entry) => normalizeEntry({
-        ...entry,
-        id: existingIds.has(entry.id) ? createId() : entry.id || createId(),
-        fields: entry.fields || {},
-        rationalization: entry.rationalization || {},
-        notes: entry.notes || ""
-      }));
+      const usedIds = new Set(entries.map((entry) => entry.id));
+      const importedIdMap = new Map();
+      const normalized = importedEntries.map((entry) => {
+        const originalId = entry.id || "";
+        let nextId = originalId || createId();
+        if (usedIds.has(nextId)) nextId = createId();
+        usedIds.add(nextId);
+        if (originalId) importedIdMap.set(originalId, nextId);
+        return normalizeEntry({
+          ...entry,
+          id: nextId,
+          fields: entry.fields || {},
+          rationalization: entry.rationalization || {},
+          notes: entry.notes || ""
+        });
+      });
+      normalized.forEach((entry) => {
+        if (entry.type !== "report") return;
+        const linkedId = entry.fields.linkedScenarioId;
+        if (importedIdMap.has(linkedId)) entry.fields.linkedScenarioId = importedIdMap.get(linkedId);
+      });
       const legacyActionRows = normalized
         .filter((entry) => entry.type === "actions")
         .flatMap((entry) => entry.fields.actionRows || []);
@@ -1274,14 +1772,14 @@ function formatEntryMarkdown(entry) {
   lines.push(`# ${entry.title || TYPE_META[entry.type].defaultTitle}`);
   lines.push("");
   lines.push(`Тип: ${TYPE_META[entry.type].label}`);
-  if (entry.date) lines.push(`Дата ситуации: ${formatDate(entry.date)}`);
+  if (entry.date) lines.push(`${getEntryDateLabel(entry.type)}: ${formatDate(entry.date)}`);
   if (entry.tags) lines.push(`Теги: ${entry.tags}`);
   lines.push("");
 
   if (entry.type === "actions") {
     appendActionRowsMarkdown(lines, getActionRows(entry));
   } else {
-    appendSectionsMarkdown(lines, getSectionsForEntry(entry), entry.fields);
+    appendSectionsMarkdown(lines, getSectionsForEntry(entry), entry.fields, entry);
   }
 
   if (entry.type === "diary") {
@@ -1293,7 +1791,7 @@ function formatEntryMarkdown(entry) {
       lines.push("");
     }
     if (entry.rationalizationEnabled || decision === "no") {
-      appendSectionsMarkdown(lines, RATIONALIZATION_SECTIONS, entry.rationalization);
+      appendSectionsMarkdown(lines, RATIONALIZATION_SECTIONS, entry.rationalization, entry);
     }
   }
   appendNotesMarkdown(lines, entry);
@@ -1330,7 +1828,7 @@ function formatRegistryValue(column, value) {
   return String(value);
 }
 
-function appendSectionsMarkdown(lines, sections, values) {
+function appendSectionsMarkdown(lines, sections, values, entry) {
   sections.forEach((section) => {
     lines.push(`## ${section.index}. ${section.title}`);
     lines.push("");
@@ -1338,10 +1836,26 @@ function appendSectionsMarkdown(lines, sections, values) {
       const value = values[field.key];
       lines.push(`**${field.label}**`);
       lines.push("");
-      lines.push(value === undefined || value === "" ? "-" : printValue(value));
+      lines.push(formatEntryFieldValue(entry, field, value));
       lines.push("");
     });
   });
+}
+
+function formatEntryFieldValue(entry, field, value) {
+  if (!hasPrintableValue(value)) return "-";
+  if (field.kind === "scenario-select") {
+    const scenario = entries.find((item) => item.id === value && item.type === "scenario");
+    return scenario?.title || "Связанный сценарий не найден";
+  }
+  if (field.kind === "ordered-list") {
+    return value.filter(hasPrintableValue).map((item, index) => `${index + 1}. ${item}`).join("\n");
+  }
+  if (field.kind === "checklist") {
+    return value.filter(hasPrintableValue).map((item) => `- ${item}`).join("\n");
+  }
+  if (field.suffix) return `${value} ${field.suffix}`;
+  return printValue(value);
 }
 
 function appendNotesMarkdown(lines, entry) {
@@ -1369,6 +1883,8 @@ function appendActionRowsMarkdown(lines, rows) {
 
 function getSectionsForEntry(entry) {
   if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
+  if (entry.type === "scenario") return SCENARIO_SECTIONS;
+  if (entry.type === "report") return REPORT_SECTIONS;
   return DIARY_SECTIONS;
 }
 
@@ -1408,9 +1924,9 @@ function renderPrintRegistry(view) {
 function renderPrintEntry(entry) {
   const body = entry.type === "actions"
     ? renderPrintActionRows(getActionRows(entry))
-    : renderPrintSections(getSectionsForEntry(entry), entry.fields);
+    : renderPrintSections(getSectionsForEntry(entry), entry.fields, entry);
   const rationalization = entry.type === "diary" && (entry.rationalizationEnabled || entry.fields.realProblemSolved === "no")
-    ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization)
+    ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization, entry)
     : "";
   const notes = renderPrintNotes(entry);
   const decision = entry.type === "diary" && entry.fields.realProblemSolved
@@ -1444,7 +1960,7 @@ function renderPrintEntry(entry) {
           </div>
           ${entry.date ? `
             <div class="print-meta-item">
-              <span>Дата ситуации</span>
+              <span>${escapeHTML(getEntryDateLabel(entry.type))}</span>
               <strong>${escapeHTML(formatDate(entry.date))}</strong>
             </div>
           ` : ""}
@@ -1480,7 +1996,7 @@ function renderPrintNotes(entry) {
   `;
 }
 
-function renderPrintSections(sections, values) {
+function renderPrintSections(sections, values, entry) {
   return sections.map((section) => {
     const fields = section.fields
       .map((field) => ({ field, value: values[field.key] }))
@@ -1498,7 +2014,7 @@ function renderPrintSections(sections, values) {
           ${fields.map(({ field, value }) => `
             <div class="print-field">
               <div class="print-field-label">${escapeHTML(field.label)}</div>
-              <div class="print-field-value">${escapeHTML(printValue(value))}</div>
+              <div class="print-field-value">${escapeHTML(formatEntryFieldValue(entry, field, value))}</div>
             </div>
           `).join("")}
         </div>
@@ -1626,7 +2142,7 @@ function searchValue(value) {
 
 function getPersistedEntries() {
   return entries
-    .filter((entry) => entry.type === "diary" || entry.type === "diagnostic")
+    .filter((entry) => ["diary", "diagnostic", "scenario", "report"].includes(entry.type))
     .filter(shouldPersistEntry);
 }
 
@@ -1704,6 +2220,12 @@ function formatDate(value) {
     month: "2-digit",
     year: "numeric"
   }).format(date);
+}
+
+function getEntryDateLabel(type) {
+  if (type === "scenario") return "Дата выполнения";
+  if (type === "report") return "Дата отчёта";
+  return "Дата ситуации";
 }
 
 function formatExportBaseName(entry) {

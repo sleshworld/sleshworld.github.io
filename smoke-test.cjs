@@ -55,6 +55,112 @@ const { chromium } = require("playwright");
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
 
+  await page.locator("#newReportButton").click();
+  const savedAfterBlankReport = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  if (savedAfterBlankReport !== 1) {
+    throw new Error(`Blank report was saved: ${savedAfterBlankReport}`);
+  }
+
+  await page.locator("#newScenarioButton").click();
+  const savedAfterBlankScenario = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  if (savedAfterBlankScenario !== 1) {
+    throw new Error(`Blank scenario was saved: ${savedAfterBlankScenario}`);
+  }
+  const scenarioDateLabel = await page.locator("#entryDateLabel").textContent();
+  if (scenarioDateLabel !== "Дата выполнения") throw new Error(`Unexpected scenario date label: ${scenarioDateLabel}`);
+  await page.locator("#titleInput").fill("Сценарий: кофейня");
+  await page.locator("textarea[data-path='fields.purpose']").fill("Научиться спокойно оставаться заметным");
+  await page.locator("textarea[data-path='fields.triggerSituation']").fill("Заказать кофе и ждать в центре зала без телефона");
+  await page.locator("textarea[data-path='fields.safetyRationale']").fill("Публичное место, есть выход, максимум последствий — неловкость");
+  await page.locator("input[data-path='fields.plannedTime']").fill("12:30");
+  await page.locator("input[data-path='fields.minimumDuration']").fill("15");
+  await page.locator("textarea[data-path='fields.steps.0']").fill("Выйти из дома в выбранной одежде");
+  await page.locator("button[data-add-entry-list='steps']").click();
+  await page.locator("textarea[data-path='fields.steps.1']").fill("Заказать большой фильтр и ждать у стойки");
+  await page.locator("button[data-move-entry-list='-1'][data-list-key='steps'][data-list-index='1']").click();
+  const movedScenarioStep = await page.evaluate(() => getActiveEntry().fields.steps[0]);
+  if (movedScenarioStep !== "Заказать большой фильтр и ждать у стойки") {
+    throw new Error("Scenario steps could not be reordered");
+  }
+  await page.locator("textarea[data-path='fields.noDoActions.0']").fill("Не доставать телефон");
+  await page.locator("button[data-add-entry-list='noDoActions']").click();
+  await page.locator("textarea[data-path='fields.noDoActions.1']").fill("Не ходить туда-сюда");
+  await page.locator("textarea[data-path='fields.bodyFocus']").fill("Наблюдать сжатие в плечах");
+  await page.locator("textarea[data-path='fields.completionCriteria']").fill("Просидеть 15 минут и уйти спокойным шагом");
+  const scenarioId = await page.evaluate(() => getActiveEntry().id);
+  const scenarioMarkdown = await page.evaluate(() => formatEntryMarkdown(getActiveEntry()));
+  const scenarioPrint = await page.evaluate(() => renderPrintEntry(getActiveEntry()));
+  if (!scenarioMarkdown.includes("1. Заказать большой фильтр") || !scenarioMarkdown.includes("- Не доставать телефон") || !scenarioMarkdown.includes("15 мин")) {
+    throw new Error("Scenario was not formatted correctly in Markdown");
+  }
+  if (!scenarioPrint.includes("Маршрут") || !scenarioPrint.includes("Не ходить туда-сюда")) {
+    throw new Error("Scenario was not included in PDF output");
+  }
+
+  if (process.env.SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "scenario-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "scenario-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  if (process.env.SCENARIO_PDF_OUTPUT) {
+    await saveCurrentPdf(page, process.env.SCENARIO_PDF_OUTPUT);
+  }
+
+  await page.locator("button[data-create-report-from-scenario]").click();
+  const reportDateLabel = await page.locator("#entryDateLabel").textContent();
+  const linkedScenarioId = await page.evaluate(() => getActiveEntry().fields.linkedScenarioId);
+  if (reportDateLabel !== "Дата отчёта" || linkedScenarioId !== scenarioId) {
+    throw new Error("Report was not linked to its scenario");
+  }
+  const linkedScenarioPreview = await page.locator(".linked-scenario-preview").innerText();
+  if (!linkedScenarioPreview.includes("Не доставать телефон") || !linkedScenarioPreview.includes("Сценарий: кофейня")) {
+    throw new Error("Linked scenario preview is incomplete");
+  }
+  await page.locator("textarea[data-path='fields.planChanges']").fill("На улице похолодало, надел куртку");
+  await page.locator("textarea[data-path='fields.actualEvents.0']").fill("Дошёл до кофейни, плечи начало сжимать");
+  await page.locator("button[data-add-entry-list='actualEvents']").click();
+  await page.locator("textarea[data-path='fields.actualEvents.1']").fill("Заказал кофе и ждал без телефона");
+  await page.locator("input[data-path='fields.feelingBefore']").fill("45");
+  await page.locator("input[data-path='fields.feelingPeak']").fill("75");
+  await page.locator("input[data-path='fields.feelingAfter']").fill("20");
+  await page.locator("textarea[data-path='fields.escapeSlips']").fill("Один раз ускорил шаг");
+  await page.locator("textarea[data-path='fields.observedFacts']").fill("Люди занимались своими делами");
+  await page.locator("textarea[data-path='fields.learning']").fill("Чувство можно выдержать без спасения");
+  const reportMarkdown = await page.evaluate(() => formatEntryMarkdown(getActiveEntry()));
+  const reportPrint = await page.evaluate(() => renderPrintEntry(getActiveEntry()));
+  if (!reportMarkdown.includes("Сценарий: кофейня") || reportMarkdown.includes(scenarioId) || !reportMarkdown.includes("75%")) {
+    throw new Error("Linked report was not formatted correctly in Markdown");
+  }
+  if (!reportPrint.includes("Динамика чувства") || !reportPrint.includes("Люди занимались своими делами")) {
+    throw new Error("Report was not included in PDF output");
+  }
+
+  if (process.env.SCREENSHOT_DIR) {
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "report-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "report-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  if (process.env.REPORT_PDF_OUTPUT) {
+    await saveCurrentPdf(page, process.env.REPORT_PDF_OUTPUT);
+  }
+
+  await page.locator("button[data-open-entry-id]").click();
+  const reopenedScenarioId = await page.evaluate(() => getActiveEntry().id);
+  if (reopenedScenarioId !== scenarioId) throw new Error("Linked scenario could not be opened from report");
+  const savedEntryCountBeforeRegistries = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  if (savedEntryCountBeforeRegistries !== 3) {
+    throw new Error(`Scenario/report entries were not saved: ${savedEntryCountBeforeRegistries}`);
+  }
+
   await page.locator("#actionsPageButton").click();
   const actionsPageTitle = await page.locator("#registryTitle").textContent();
   const actionsNavigationPressed = await page.locator("#actionsPageButton").getAttribute("aria-pressed");
@@ -65,7 +171,7 @@ const { chromium } = require("playwright");
   const savedAfterBlankActions = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
-  if (savedAfterBlankActions !== 1) {
+  if (savedAfterBlankActions !== savedEntryCountBeforeRegistries) {
     throw new Error(`Blank actions entry was saved: ${savedAfterBlankActions}`);
   }
   const expectedActionHeaders = [
@@ -161,7 +267,7 @@ const { chromium } = require("playwright");
   const entriesAfterRegistries = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]");
   });
-  if (entriesAfterRegistries.length !== 1 || entriesAfterRegistries.some((entry) => entry.type === "actions")) {
+  if (entriesAfterRegistries.length !== savedEntryCountBeforeRegistries || entriesAfterRegistries.some((entry) => entry.type === "actions")) {
     throw new Error("Registry page created a sidebar entry");
   }
 
@@ -169,7 +275,13 @@ const { chromium } = require("playwright");
   await page.locator("#backupButton").click();
   const backupDownload = await backupPromise;
   const backupPayload = JSON.parse(fs.readFileSync(await backupDownload.path(), "utf8"));
-  if (backupPayload.version !== 2 || backupPayload.actionRows.length !== 2 || backupPayload.triggerRows.length !== 2) {
+  if (
+    backupPayload.version !== 2 ||
+    backupPayload.actionRows.length !== 2 ||
+    backupPayload.triggerRows.length !== 2 ||
+    !backupPayload.entries.some((entry) => entry.type === "scenario") ||
+    !backupPayload.entries.some((entry) => entry.type === "report")
+  ) {
     throw new Error("Backup does not include both registries");
   }
 
@@ -323,14 +435,50 @@ const { chromium } = require("playwright");
 
   const importPage = await browser.newPage();
   await importPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href);
-  await importPage.evaluate(() => localStorage.clear());
+  await importPage.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem("stress-diary-app.entries.v1", JSON.stringify([{
+      id: "scenario-import",
+      type: "scenario",
+      title: "Существующий сценарий",
+      date: "2026-07-17",
+      fields: { purpose: "Проверка конфликта", steps: [""], noDoActions: [""] },
+      rationalization: {},
+      notes: "",
+      createdAt: "2026-07-17T00:00:00.000Z",
+      updatedAt: "2026-07-17T00:00:00.000Z"
+    }]));
+  });
   await importPage.reload();
   await importPage.locator("#importFileInput").setInputFiles({
     name: "backup-v2.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify({
       version: 2,
-      entries: [],
+      entries: [
+        {
+          id: "scenario-import",
+          type: "scenario",
+          title: "Импортированный сценарий",
+          date: "2026-07-17",
+          fields: { purpose: "Новый план", steps: ["Первый шаг"], noDoActions: ["Не спешить"] },
+          rationalization: {},
+          notes: "",
+          createdAt: "2026-07-17T01:00:00.000Z",
+          updatedAt: "2026-07-17T01:00:00.000Z"
+        },
+        {
+          id: "report-import",
+          type: "report",
+          title: "Импортированный отчёт",
+          date: "2026-07-17",
+          fields: { linkedScenarioId: "scenario-import", actualEvents: ["Первый эпизод"] },
+          rationalization: {},
+          notes: "",
+          createdAt: "2026-07-17T02:00:00.000Z",
+          updatedAt: "2026-07-17T02:00:00.000Z"
+        }
+      ],
       actionRows: [{ situation: "Импортированное действие", adaptiveBehavior: "Сделать прямо" }],
       triggerRows: [{ situation: "Импортированный триггер", difficulty: 25, avoidanceActions: "Отложить" }]
     }), "utf8")
@@ -341,11 +489,17 @@ const { chromium } = require("playwright");
     return actions.length === 1 && triggers.length === 1;
   });
   const importResult = await importPage.evaluate(() => ({
+    entries: JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]"),
     actionRows: JSON.parse(localStorage.getItem("stress-diary-app.action-rows.v1") || "[]"),
     triggerRows: JSON.parse(localStorage.getItem("stress-diary-app.trigger-rows.v1") || "[]")
   }));
   if (importResult.actionRows[0].situation !== "Импортированное действие" || importResult.triggerRows[0].difficulty !== 25) {
     throw new Error("Version 2 registry backup was not imported");
+  }
+  const importedScenario = importResult.entries.find((entry) => entry.title === "Импортированный сценарий");
+  const importedReport = importResult.entries.find((entry) => entry.title === "Импортированный отчёт");
+  if (!importedScenario || !importedReport || importedScenario.id === "scenario-import" || importedReport.fields.linkedScenarioId !== importedScenario.id) {
+    throw new Error("Scenario/report relation was not remapped during import");
   }
   await importPage.close();
 
@@ -361,6 +515,9 @@ const { chromium } = require("playwright");
     title,
     savedAfterFill,
     savedAfterBlankDiagnostic,
+    savedAfterBlankReport,
+    savedAfterBlankScenario,
+    linkedReportCreated: linkedScenarioId === scenarioId,
     savedAfterBlankActions,
     diagnosticIntensityCount,
     actionRowsBefore,
@@ -385,6 +542,25 @@ const { chromium } = require("playwright");
   console.error(error);
   process.exit(1);
 });
+
+async function saveCurrentPdf(page, outputPath) {
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  await page.evaluate(() => {
+    window.__artifactPdfReady = false;
+    window.print = () => {
+      window.__artifactPdfReady = true;
+    };
+  });
+  await page.locator("#printButton").click();
+  await page.waitForFunction(() => window.__artifactPdfReady === true);
+  await page.pdf({
+    path: outputPath,
+    format: "A4",
+    printBackground: true,
+    preferCSSPageSize: true
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+}
 
 function findBrowserPath() {
   const candidates = [
