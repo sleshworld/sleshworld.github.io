@@ -404,26 +404,20 @@ const SCENARIO_SECTIONS = [
 
 const REPORT_SECTIONS = [
   {
-    title: "Связь с планом",
+    title: "Как всё происходило",
     index: "01",
     fields: [
       {
-        key: "linkedScenarioId",
-        label: "По какому сценарию?",
-        kind: "scenario-select"
+        key: "reportDate",
+        label: "Когда выполнил сценарий?",
+        kind: "date"
       },
       {
         key: "planChanges",
         label: "Что изменилось относительно плана?",
         hint: "Погода, место, одежда, время и другие фактические изменения.",
         rows: 4
-      }
-    ]
-  },
-  {
-    title: "Как всё происходило",
-    index: "02",
-    fields: [
+      },
       {
         key: "actualEvents",
         label: "Хронология прохождения",
@@ -441,7 +435,7 @@ const REPORT_SECTIONS = [
   },
   {
     title: "Динамика чувства",
-    index: "03",
+    index: "02",
     fields: [
       { key: "feelingBefore", label: "До начала", kind: "range" },
       { key: "feelingPeak", label: "На пике", kind: "range" },
@@ -455,7 +449,7 @@ const REPORT_SECTIONS = [
   },
   {
     title: "Охранительное и избегающее поведение",
-    index: "04",
+    index: "03",
     fields: [
       {
         key: "avoidedActions",
@@ -472,7 +466,7 @@ const REPORT_SECTIONS = [
   },
   {
     title: "Факты и вывод",
-    index: "05",
+    index: "04",
     fields: [
       {
         key: "observedFacts",
@@ -493,6 +487,12 @@ const REPORT_SECTIONS = [
       {
         key: "nextAttempt",
         label: "Что повторю или изменю в следующий раз?",
+        rows: 4
+      },
+      {
+        key: "notes",
+        label: "Что ещё важно сохранить из этого опыта?",
+        hint: "Инсайт, вопрос к психологу или деталь, которую не хочется потерять.",
         rows: 4
       }
     ]
@@ -677,13 +677,11 @@ function bindEvents() {
   document.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
   document.getElementById("newScenarioButton").addEventListener("click", () => createEntry("scenario"));
-  document.getElementById("newReportButton").addEventListener("click", () => createEntry("report"));
   document.getElementById("actionsPageButton").addEventListener("click", () => openRegistry("actions"));
   document.getElementById("triggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
   document.getElementById("emptyNewScenarioButton").addEventListener("click", () => createEntry("scenario"));
-  document.getElementById("emptyNewReportButton").addEventListener("click", () => createEntry("report"));
   document.getElementById("emptyActionsPageButton").addEventListener("click", () => openRegistry("actions"));
   document.getElementById("emptyTriggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("duplicateButton").addEventListener("click", duplicateActive);
@@ -733,7 +731,9 @@ function load() {
   } catch {
     entries = [];
   }
-  const normalizedEntries = entries.map(normalizeEntry);
+  const storedActiveId = localStorage.getItem(ACTIVE_KEY) || "";
+  const migration = migrateLegacyReports(entries.map(normalizeEntry), storedActiveId);
+  const normalizedEntries = migration.entries;
   const legacyActionEntries = normalizedEntries.filter((entry) => entry.type === "actions");
   const legacyActionRows = legacyActionEntries.flatMap((entry) => entry.fields.actionRows || []);
   actionRows = mergeRegistryRows(
@@ -746,14 +746,14 @@ function load() {
     .filter((entry) => entry.type !== "actions")
     .filter(shouldPersistEntry);
   const storedView = localStorage.getItem(VIEW_STORAGE_KEY);
-  activeId = localStorage.getItem(ACTIVE_KEY) || "";
+  activeId = migration.activeId;
   activeView = storedView && REGISTRY_META[storedView]
     ? storedView
     : (legacyActionEntries.some((entry) => entry.id === activeId) ? "actions" : "entry");
   if (!entries.some((entry) => entry.id === activeId)) {
     activeId = entries[0]?.id || "";
   }
-  if (legacyActionEntries.length) save();
+  if (legacyActionEntries.length || migration.changed) save();
 }
 
 function save() {
@@ -770,7 +770,7 @@ function save() {
 }
 
 function createEntry(type, options = {}) {
-  if (!TYPE_META[type] || type === "actions") return;
+  if (!TYPE_META[type] || type === "actions" || type === "report") return;
   discardEmptyEntries();
   discardEmptyRegistryRows();
   activeView = "entry";
@@ -789,6 +789,8 @@ function createEntry(type, options = {}) {
     },
     rationalization: {},
     rationalizationEnabled: false,
+    report: type === "scenario" ? createDefaultReport() : {},
+    reportEnabled: false,
     notes: ""
   };
   entries.unshift(entry);
@@ -802,8 +804,14 @@ function createEntry(type, options = {}) {
 
 function createDefaultEntryFields(type) {
   if (type === "scenario") return { steps: [""], noDoActions: [""] };
-  if (type === "report") return { actualEvents: [""] };
   return {};
+}
+
+function createDefaultReport(values = {}) {
+  const report = values && typeof values === "object" ? { ...values } : {};
+  delete report.linkedScenarioId;
+  if (!Array.isArray(report.actualEvents)) report.actualEvents = [""];
+  return report;
 }
 
 function openRegistry(view) {
@@ -863,6 +871,8 @@ function normalizeEntry(entry) {
   if (normalized.type === "scenario") {
     if (!Array.isArray(normalized.fields.steps)) normalized.fields.steps = [""];
     if (!Array.isArray(normalized.fields.noDoActions)) normalized.fields.noDoActions = [""];
+    normalized.report = createDefaultReport(normalized.report);
+    normalized.reportEnabled = Boolean(normalized.reportEnabled || hasMeaningfulValue(normalized.report));
     return normalized;
   }
   if (normalized.type === "report") {
@@ -887,6 +897,58 @@ function normalizeEntry(entry) {
     adaptiveBehavior: normalized.fields.adaptiveBehavior || ""
   }];
   return normalized;
+}
+
+function migrateLegacyReports(sourceEntries, storedActiveId = "") {
+  const reports = sourceEntries.filter((entry) => entry.type === "report");
+  if (!reports.length) {
+    return { entries: sourceEntries, activeId: storedActiveId, changed: false };
+  }
+
+  const migrated = sourceEntries.filter((entry) => entry.type !== "report");
+  const scenarios = new Map(migrated.filter((entry) => entry.type === "scenario").map((entry) => [entry.id, entry]));
+  const occupiedScenarios = new Set(
+    migrated
+      .filter((entry) => entry.type === "scenario" && (entry.reportEnabled || hasMeaningfulValue(entry.report)))
+      .map((entry) => entry.id)
+  );
+  let nextActiveId = storedActiveId;
+
+  reports.forEach((legacyReport) => {
+    const linkedScenario = scenarios.get(legacyReport.fields.linkedScenarioId);
+    const report = createDefaultReport({
+      ...legacyReport.fields,
+      reportDate: legacyReport.fields.reportDate || legacyReport.date || "",
+      notes: legacyReport.notes || legacyReport.fields.notes || ""
+    });
+
+    if (linkedScenario && !occupiedScenarios.has(linkedScenario.id)) {
+      linkedScenario.report = report;
+      linkedScenario.reportEnabled = true;
+      linkedScenario.updatedAt = [linkedScenario.updatedAt, legacyReport.updatedAt].filter(Boolean).sort().at(-1) || new Date().toISOString();
+      occupiedScenarios.add(linkedScenario.id);
+      if (nextActiveId === legacyReport.id) nextActiveId = linkedScenario.id;
+      return;
+    }
+
+    const subject = String(legacyReport.title || "").replace(/^Отч[её]т:\s*/i, "").trim();
+    const scenario = normalizeEntry({
+      ...legacyReport,
+      id: legacyReport.id || createId(),
+      type: "scenario",
+      title: subject ? `Сценарий: ${subject}` : "Сценарий с отчётом",
+      fields: { steps: [""], noDoActions: [""] },
+      report,
+      reportEnabled: true,
+      notes: "",
+      rationalization: {},
+      rationalizationEnabled: false
+    });
+    migrated.push(scenario);
+    scenarios.set(scenario.id, scenario);
+  });
+
+  return { entries: migrated, activeId: nextActiveId, changed: true };
 }
 
 function duplicateActive() {
@@ -1004,8 +1066,7 @@ function renderEditor() {
   const renderers = {
     diary: renderDiary,
     diagnostic: renderDiagnostic,
-    scenario: renderScenario,
-    report: renderReport
+    scenario: renderScenario
   };
   elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
 }
@@ -1040,7 +1101,6 @@ function renderDiary(entry) {
 }
 
 function renderScenario(entry) {
-  const relatedReports = getPersistedEntries().filter((item) => item.type === "report" && item.fields.linkedScenarioId === entry.id).length;
   return `
     <div class="protocol-intro scenario-intro">
       <div>
@@ -1048,36 +1108,51 @@ function renderScenario(entry) {
         <h2>Маршрут без импровизации</h2>
         <p>Опиши наблюдаемые действия заранее: где начинаешь, что говоришь, чего не делаешь и сколько остаёшься в ситуации.</p>
       </div>
-      <div class="protocol-intro-actions">
-        <span class="protocol-count">Отчётов: ${relatedReports}</span>
-        <button class="button primary" type="button" data-create-report-from-scenario>Создать отчёт</button>
-      </div>
     </div>
     <div class="scenario-builder">
       ${SCENARIO_SECTIONS.map((section) => renderProtocolSection(section, entry, "scenario")).join("")}
     </div>
+    ${renderScenarioReportBranch(entry)}
     ${renderNotes(entry)}
   `;
 }
 
-function renderReport(entry) {
-  return `
-    <div class="protocol-intro report-intro">
+function renderScenarioReportBranch(entry) {
+  const gate = `
+    <section class="scenario-report-gate">
       <div>
-        <p class="protocol-kicker">После экспозиции</p>
-        <h2>Факты вместо общей оценки</h2>
-        <p>Восстанови ход событий по эпизодам: действие, чувство, телесная реакция, реальные последствия и следующий шаг.</p>
+        <p class="protocol-kicker">После выполнения</p>
+        <h2>Отчёт по сценарию</h2>
+        <p>Раскрой отчёт, когда сценарий выполнен, и зафиксируй факты по свежей памяти.</p>
+      </div>
+      <label class="switch-row report-switch">
+        <input type="checkbox" data-path="reportEnabled" ${entry.reportEnabled ? "checked" : ""}>
+        <span>Сценарий выполнен — заполнить отчёт</span>
+      </label>
+    </section>
+  `;
+
+  if (!entry.reportEnabled) return gate;
+
+  return gate + `
+    <div class="embedded-report">
+      <div class="protocol-intro report-intro">
+        <div>
+          <p class="protocol-kicker">После экспозиции</p>
+          <h2>Факты вместо общей оценки</h2>
+          <p>Восстанови ход событий по эпизодам: действие, чувство, телесная реакция, реальные последствия и следующий шаг.</p>
+        </div>
+      </div>
+      <div class="report-builder">
+        ${REPORT_SECTIONS.map((section) => renderProtocolSection(section, entry, "report", "report")).join("")}
       </div>
     </div>
-    <div class="report-builder">
-      ${REPORT_SECTIONS.map((section) => renderProtocolSection(section, entry, "report")).join("")}
-    </div>
-    ${renderNotes(entry)}
   `;
 }
 
-function renderProtocolSection(section, entry, variant) {
-  const fields = section.fields.map((field) => renderProtocolField(field, entry, variant)).join("");
+function renderProtocolSection(section, entry, variant, rootPath = "fields") {
+  const values = rootPath === "report" ? entry.report : entry.fields;
+  const fields = section.fields.map((field) => renderProtocolField(field, entry, variant, values, rootPath)).join("");
   const sectionClass = variant === "scenario"
     ? `protocol-section scenario-phase tone-${section.tone || "coral"}`
     : "protocol-section report-phase";
@@ -1087,26 +1162,23 @@ function renderProtocolSection(section, entry, variant) {
         <span class="protocol-step">${escapeHTML(section.index)}</span>
         <h2>${escapeHTML(section.title)}</h2>
       </div>
-      <div class="protocol-fields ${variant === "report" && section.index === "03" ? "feeling-curve-fields" : ""}">
+      <div class="protocol-fields ${variant === "report" && section.index === "02" ? "feeling-curve-fields" : ""}">
         ${fields}
       </div>
     </section>
   `;
 }
 
-function renderProtocolField(field, entry, variant) {
+function renderProtocolField(field, entry, variant, values, rootPath) {
   if (field.kind === "ordered-list" || field.kind === "checklist") {
-    return renderEntryListField(entry, field);
-  }
-  if (field.kind === "scenario-select") {
-    return renderScenarioSelect(entry);
+    return renderEntryListField(entry, field, values, rootPath);
   }
   const className = variant === "report" && field.kind === "range" ? " protocol-rating" : "";
-  return `<div class="protocol-field${className}" data-field-key="${escapeAttr(field.key)}">${renderField(field, entry.fields[field.key], `fields.${field.key}`)}</div>`;
+  return `<div class="protocol-field${className}" data-field-key="${escapeAttr(field.key)}">${renderField(field, values[field.key], `${rootPath}.${field.key}`)}</div>`;
 }
 
-function renderEntryListField(entry, field) {
-  const storedItems = Array.isArray(entry.fields[field.key]) ? entry.fields[field.key] : [];
+function renderEntryListField(entry, field, values, rootPath) {
+  const storedItems = Array.isArray(values[field.key]) ? values[field.key] : [];
   const items = storedItems.length ? storedItems : [""];
   const isChecklist = field.kind === "checklist";
   return `
@@ -1122,52 +1194,17 @@ function renderEntryListField(entry, field) {
         ${items.map((item, index) => `
           <div class="entry-list-item">
             <span class="entry-list-index">${isChecklist ? "не" : index + 1}</span>
-            <textarea rows="${isChecklist ? 2 : 3}" data-path="fields.${escapeAttr(field.key)}.${index}" placeholder="${isChecklist ? "Какое действие исключаю?" : "Что конкретно делаю на этом шаге?"}">${escapeHTML(item || "")}</textarea>
+            <textarea rows="${isChecklist ? 2 : 3}" data-path="${escapeAttr(rootPath)}.${escapeAttr(field.key)}.${index}" placeholder="${isChecklist ? "Какое действие исключаю?" : (field.key === "actualEvents" ? "Что произошло в этом эпизоде?" : "Что конкретно делаю на этом шаге?")}">${escapeHTML(item || "")}</textarea>
             <div class="entry-list-controls" aria-label="Управление строкой ${index + 1}">
-              <button class="list-icon-button" type="button" data-move-entry-list="-1" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить выше" aria-label="Переместить строку ${index + 1} выше" ${index === 0 ? "disabled" : ""}>↑</button>
-              <button class="list-icon-button" type="button" data-move-entry-list="1" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить ниже" aria-label="Переместить строку ${index + 1} ниже" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
-              <button class="list-icon-button danger" type="button" data-remove-entry-list data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Удалить строку" aria-label="Удалить строку ${index + 1}">×</button>
+              <button class="list-icon-button" type="button" data-move-entry-list="-1" data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить выше" aria-label="Переместить строку ${index + 1} выше" ${index === 0 ? "disabled" : ""}>↑</button>
+              <button class="list-icon-button" type="button" data-move-entry-list="1" data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить ниже" aria-label="Переместить строку ${index + 1} ниже" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
+              <button class="list-icon-button danger" type="button" data-remove-entry-list data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Удалить строку" aria-label="Удалить строку ${index + 1}">×</button>
             </div>
           </div>
         `).join("")}
       </div>
-      <button class="button add-entry-list-item" type="button" data-add-entry-list="${escapeAttr(field.key)}">${isChecklist ? "Добавить запрет" : (field.key === "actualEvents" ? "Добавить эпизод" : "Добавить шаг")}</button>
+      <button class="button add-entry-list-item" type="button" data-add-entry-list="${escapeAttr(field.key)}" data-list-root="${escapeAttr(rootPath)}">${isChecklist ? "Добавить запрет" : (field.key === "actualEvents" ? "Добавить эпизод" : "Добавить шаг")}</button>
     </div>
-  `;
-}
-
-function renderScenarioSelect(report) {
-  const scenarios = getPersistedEntries()
-    .filter((entry) => entry.type === "scenario")
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  const linkedId = report.fields.linkedScenarioId || "";
-  const linked = scenarios.find((entry) => entry.id === linkedId);
-  return `
-    <div class="protocol-field scenario-link-field" data-field-key="linkedScenarioId">
-      <label class="field">
-        <span>По какому сценарию?</span>
-        <select data-path="fields.linkedScenarioId">
-          <option value="">Без привязки</option>
-          ${scenarios.map((scenario) => `<option value="${escapeAttr(scenario.id)}" ${scenario.id === linkedId ? "selected" : ""}>${escapeHTML(scenario.title || TYPE_META.scenario.defaultTitle)} · ${escapeHTML(formatDate(scenario.date))}</option>`).join("")}
-        </select>
-      </label>
-      ${linked ? renderLinkedScenarioPreview(linked) : `<p class="scenario-link-empty">${scenarios.length ? "Выбери сценарий, чтобы видеть план во время отчёта." : "Сценариев пока нет. Отчёт можно заполнить и без привязки."}</p>`}
-    </div>
-  `;
-}
-
-function renderLinkedScenarioPreview(scenario) {
-  const noDoActions = (scenario.fields.noDoActions || []).filter(hasPrintableValue);
-  return `
-    <aside class="linked-scenario-preview">
-      <div>
-        <p class="linked-scenario-label">Исходный план</p>
-        <h3>${escapeHTML(scenario.title || TYPE_META.scenario.defaultTitle)}</h3>
-        ${scenario.fields.purpose ? `<p>${escapeHTML(scenario.fields.purpose)}</p>` : ""}
-      </div>
-      ${noDoActions.length ? `<div class="linked-no-do">${noDoActions.map((item) => `<span>${escapeHTML(item)}</span>`).join("")}</div>` : ""}
-      <button class="button" type="button" data-open-entry-id="${escapeAttr(scenario.id)}">Открыть сценарий</button>
-    </aside>
   `;
 }
 
@@ -1343,7 +1380,7 @@ function renderField(field, value = "", path) {
     `;
   }
 
-  if (field.kind === "time" || field.kind === "number") {
+  if (field.kind === "time" || field.kind === "number" || field.kind === "date") {
     const input = `<input type="${field.kind}" value="${escapeAttr(value ?? "")}" data-path="${escapeAttr(path)}" ${field.min !== undefined ? `min="${escapeAttr(field.min)}"` : ""}>`;
     return `
       <label class="field">
@@ -1420,7 +1457,7 @@ function handleFormChange(event) {
   setPath(entry, control.dataset.path, getControlValue(control));
   touchAndSave(entry);
 
-  if (control.type === "radio" || control.type === "checkbox" || control.dataset.path === "fields.linkedScenarioId") {
+  if (control.type === "radio" || control.type === "checkbox") {
     renderEditorPreservingViewport();
   }
 }
@@ -1454,9 +1491,11 @@ function handleFormClick(event) {
     if (!entry) return;
     const control = addEntryList || removeEntryList || moveEntryList;
     const key = addEntryList?.dataset.addEntryList || control.dataset.listKey;
-    if (!isEntryListKey(entry.type, key)) return;
-    if (!Array.isArray(entry.fields[key])) entry.fields[key] = [];
-    const items = entry.fields[key];
+    const root = control.dataset.listRoot || "fields";
+    if (!isEntryListKey(entry.type, root, key)) return;
+    const values = root === "report" ? entry.report : entry.fields;
+    if (!Array.isArray(values[key])) values[key] = [];
+    const items = values[key];
     if (addEntryList) {
       items.push("");
     } else {
@@ -1475,22 +1514,6 @@ function handleFormClick(event) {
     return;
   }
 
-  if (event.target.closest("[data-create-report-from-scenario]")) {
-    createReportFromScenario();
-    return;
-  }
-
-  const openEntry = event.target.closest("[data-open-entry-id]");
-  if (openEntry) {
-    const entry = entries.find((item) => item.id === openEntry.dataset.openEntryId);
-    if (!entry) return;
-    activeView = "entry";
-    activeId = entry.id;
-    save();
-    render();
-    return;
-  }
-
   const chip = event.target.closest("[data-chip-path]");
   if (!chip) return;
   const entry = getActiveEntry();
@@ -1500,38 +1523,21 @@ function handleFormClick(event) {
   renderEditor();
 }
 
-function createReportFromScenario() {
-  const scenario = getActiveEntry();
-  if (!scenario || scenario.type !== "scenario") return;
-  if (!shouldPersistEntry(scenario)) {
-    showToast("Сначала опиши сценарий");
-    return;
-  }
-  const baseTitle = scenario.title && scenario.title !== TYPE_META.scenario.defaultTitle
-    ? scenario.title
-    : (scenario.fields.triggerSituation || "сценарий");
-  const reportSubject = baseTitle.replace(/^Сценарий:\s*/i, "");
-  createEntry("report", {
-    title: `Отчёт: ${reportSubject}`,
-    tags: scenario.tags,
-    fields: { linkedScenarioId: scenario.id },
-    message: "Отчёт связан со сценарием"
-  });
-}
-
 function ensureEntryListForPath(entry, path) {
-  const match = String(path || "").match(/^fields\.(steps|noDoActions|actualEvents)\.(\d+)$/);
-  if (!match || !isEntryListKey(entry.type, match[1])) return;
-  const key = match[1];
-  const index = Number(match[2]);
-  if (!Array.isArray(entry.fields[key])) entry.fields[key] = [];
-  while (entry.fields[key].length <= index) entry.fields[key].push("");
+  const match = String(path || "").match(/^(fields|report)\.(steps|noDoActions|actualEvents)\.(\d+)$/);
+  if (!match || !isEntryListKey(entry.type, match[1], match[2])) return;
+  const root = match[1];
+  const key = match[2];
+  const index = Number(match[3]);
+  const values = root === "report" ? entry.report : entry.fields;
+  if (!Array.isArray(values[key])) values[key] = [];
+  while (values[key].length <= index) values[key].push("");
 }
 
-function isEntryListKey(type, key) {
-  if (type === "scenario") return key === "steps" || key === "noDoActions";
-  if (type === "report") return key === "actualEvents";
-  return false;
+function isEntryListKey(type, root, key) {
+  if (type !== "scenario") return false;
+  if (root === "fields") return key === "steps" || key === "noDoActions";
+  return root === "report" && key === "actualEvents";
 }
 
 function updateRegistryControl(control, clampPercent) {
@@ -1745,16 +1751,18 @@ function importBackup(event) {
         const linkedId = entry.fields.linkedScenarioId;
         if (importedIdMap.has(linkedId)) entry.fields.linkedScenarioId = importedIdMap.get(linkedId);
       });
-      const legacyActionRows = normalized
+      const migratedImport = migrateLegacyReports(normalized, normalized[0]?.id || "");
+      const migratedEntries = migratedImport.entries;
+      const legacyActionRows = migratedEntries
         .filter((entry) => entry.type === "actions")
         .flatMap((entry) => entry.fields.actionRows || []);
-      const persistedImported = normalized
+      const persistedImported = migratedEntries
         .filter((entry) => entry.type !== "actions")
         .filter(shouldPersistEntry);
       entries = [...persistedImported, ...entries].filter(shouldPersistEntry);
       actionRows = mergeRegistryRows(actionRows, [...importedActionRows, ...legacyActionRows], ACTION_COLUMNS);
       triggerRows = mergeRegistryRows(triggerRows, importedTriggerRows, TRIGGER_COLUMNS);
-      activeId = persistedImported[0]?.id || entries[0]?.id || "";
+      activeId = migratedImport.activeId || persistedImported[0]?.id || entries[0]?.id || "";
       save();
       render();
       showToast("Импорт завершен");
@@ -1793,6 +1801,11 @@ function formatEntryMarkdown(entry) {
     if (entry.rationalizationEnabled || decision === "no") {
       appendSectionsMarkdown(lines, RATIONALIZATION_SECTIONS, entry.rationalization, entry);
     }
+  }
+  if (entry.type === "scenario" && shouldIncludeScenarioReport(entry)) {
+    lines.push("# Отчёт по сценарию");
+    lines.push("");
+    appendSectionsMarkdown(lines, REPORT_SECTIONS, entry.report, entry);
   }
   appendNotesMarkdown(lines, entry);
 
@@ -1844,6 +1857,7 @@ function appendSectionsMarkdown(lines, sections, values, entry) {
 
 function formatEntryFieldValue(entry, field, value) {
   if (!hasPrintableValue(value)) return "-";
+  if (field.kind === "date") return formatDate(value);
   if (field.kind === "scenario-select") {
     const scenario = entries.find((item) => item.id === value && item.type === "scenario");
     return scenario?.title || "Связанный сценарий не найден";
@@ -1928,6 +1942,15 @@ function renderPrintEntry(entry) {
   const rationalization = entry.type === "diary" && (entry.rationalizationEnabled || entry.fields.realProblemSolved === "no")
     ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization, entry)
     : "";
+  const report = entry.type === "scenario" && shouldIncludeScenarioReport(entry)
+    ? `
+      <section class="print-report-divider">
+        <span>После выполнения</span>
+        <h2>Отчёт по сценарию</h2>
+      </section>
+      ${renderPrintSections(REPORT_SECTIONS, entry.report, entry)}
+    `
+    : "";
   const notes = renderPrintNotes(entry);
   const decision = entry.type === "diary" && entry.fields.realProblemSolved
     ? `
@@ -1975,6 +1998,7 @@ function renderPrintEntry(entry) {
       ${body}
       ${decision}
       ${rationalization}
+      ${report}
       ${notes}
     </article>
   `;
@@ -2129,7 +2153,8 @@ function searchBlob(entry) {
     TYPE_META[entry.type].label,
     entry.notes,
     ...Object.values(entry.fields || {}),
-    ...Object.values(entry.rationalization || {})
+    ...Object.values(entry.rationalization || {}),
+    ...Object.values(entry.report || {})
   ].map(searchValue).join(" ").toLowerCase();
 }
 
@@ -2142,7 +2167,7 @@ function searchValue(value) {
 
 function getPersistedEntries() {
   return entries
-    .filter((entry) => ["diary", "diagnostic", "scenario", "report"].includes(entry.type))
+    .filter((entry) => ["diary", "diagnostic", "scenario"].includes(entry.type))
     .filter(shouldPersistEntry);
 }
 
@@ -2160,8 +2185,13 @@ function shouldPersistEntry(entry) {
     hasMeaningfulValue(entry.notes) ||
     hasMeaningfulValue(entry.fields) ||
     hasMeaningfulValue(entry.rationalization) ||
-    entry.rationalizationEnabled
+    entry.rationalizationEnabled ||
+    hasMeaningfulValue(entry.report)
   );
+}
+
+function shouldIncludeScenarioReport(entry) {
+  return Boolean(entry?.reportEnabled || hasMeaningfulValue(entry?.report));
 }
 
 function hasMeaningfulValue(value) {
