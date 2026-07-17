@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Стресс-дневник</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Записи">
+      <div class="brand">
+        <div>
+          <h1>Стресс-дневник</h1>
+          <p>Диагностика, дневник, рационализация</p>
+        </div>
+        <span class="local-badge">Локально</span>
+      </div>
+
+      <div class="create-grid" aria-label="Создать запись">
+        <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
+        <button class="button" type="button" id="newDiagnosticButton">Диагностика</button>
+      </div>
+
+      <label class="field compact">
+        <span>Поиск</span>
+        <input type="search" id="searchInput" autocomplete="off" placeholder="Ситуация, мысль, чувство">
+      </label>
+
+      <div class="entry-list" id="entryList" aria-label="Список записей"></div>
+
+      <div class="backup-box">
+        <button class="button block" type="button" id="backupButton">Скачать резервную копию</button>
+        <button class="button ghost block" type="button" id="importButton">Импортировать JSON</button>
+        <input class="hidden" type="file" id="importFileInput" accept="application/json,.json">
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="entryTypeLabel">Запись</p>
+          <input class="title-input" id="titleInput" type="text" autocomplete="off" aria-label="Название записи">
+        </div>
+        <div class="actions" aria-label="Действия с записью">
+          <button class="button" type="button" id="duplicateButton">Дублировать</button>
+          <button class="button" type="button" id="copyButton">Скопировать</button>
+          <button class="button" type="button" id="downloadMarkdownButton">Markdown</button>
+          <button class="button" type="button" id="printButton">Сохранить PDF</button>
+          <button class="button danger" type="button" id="deleteButton">Удалить</button>
+        </div>
+      </header>
+
+      <section class="editor-panel" id="editorPanel">
+        <div class="meta-row">
+          <label class="field">
+            <span>Дата ситуации</span>
+            <input type="date" id="entryDateInput">
+          </label>
+          <label class="field">
+            <span>Теги</span>
+            <input type="text" id="tagsInput" autocomplete="off" placeholder="работа, отношения, вечер">
+          </label>
+        </div>
+
+        <aside class="storage-note" aria-label="Как хранятся записи">
+          <div>
+            <p class="storage-note-title">Записи хранятся только в этом браузере</p>
+            <p>
+              Они не отправляются на сервер и не появятся сами на другом устройстве.
+              Если при чистке истории или кэша удалить данные сайта, записи могут стереться.
+            </p>
+          </div>
+          <button class="button storage-note-button" type="button" id="storagePrintButton">Сохранить PDF</button>
+        </aside>
+
+        <div id="formRoot"></div>
+      </section>
+
+      <section class="empty-state hidden" id="emptyState">
+        <h2>Пока нет записей</h2>
+        <p>Создай дневник для обычной стрессовой ситуации или диагностику для более глубокого разбора.</p>
+        <div class="create-grid narrow">
+          <button class="button primary" type="button" id="emptyNewDiaryButton">Дневник</button>
+          <button class="button" type="button" id="emptyNewDiagnosticButton">Диагностика</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="print-root" id="printRoot"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
