@@ -1,0 +1,2478 @@
+<!--
+  Стресс-дневник для Tilda.
+  Вставьте этот файл целиком в блок T123 (Другое -> Embed HTML Code),
+  сохраните блок и опубликуйте страницу. В редакторе Tilda код может
+  отображаться как текст; приложение начинает работать после публикации.
+-->
+<style id="mdpsy-diary-page-styles">
+  #mdpsy-stress-diary-host {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  @media print {
+    body.mdpsy-diary-printing * {
+      visibility: hidden !important;
+    }
+
+    body.mdpsy-diary-printing #mdpsy-stress-diary-host {
+      position: absolute !important;
+      inset: 0 auto auto 0 !important;
+      display: block !important;
+      width: 100% !important;
+      visibility: visible !important;
+    }
+  }
+</style>
+
+<div id="mdpsy-stress-diary-host" data-version="1.0.0"></div>
+
+<template id="mdpsy-stress-diary-template">
+  <style>
+    :host {
+      display: block;
+      width: 100%;
+      min-width: 320px;
+      isolation: isolate;
+      color-scheme: light;
+      --bg: #f4f4ef;
+      --paper: #ffffff;
+      --ink: #050505;
+      --ink-soft: #242424;
+      --muted: #676767;
+      --muted-2: #8a8a8a;
+      --line: #050505;
+      --line-soft: #dddddd;
+      --line-warm: #e8e2d8;
+      --accent: #ff8562;
+      --accent-soft: #ffe4da;
+      --blue: #2015ff;
+      --yellow: #ffe05f;
+      --danger: #b32634;
+      --danger-soft: #ffe5e8;
+      --shadow: 8px 8px 0 #050505;
+      --soft-shadow: 0 18px 44px rgba(0, 0, 0, 0.08);
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    :host {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px),
+        var(--bg);
+      background-size: 40px 40px;
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.45;
+    }
+    
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+    
+    button {
+      cursor: pointer;
+    }
+    
+    .app-shell {
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      border-right: 2px solid var(--line);
+      background: var(--paper);
+      padding: 22px;
+    }
+    
+    .brand {
+      display: grid;
+      gap: 14px;
+      border: 2px solid var(--line);
+      background: var(--ink);
+      color: var(--paper);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 0.95;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+    
+    .brand p {
+      margin: 8px 0 0;
+      max-width: 290px;
+      color: #d7d7d7;
+      font-weight: 500;
+    }
+    
+    .local-badge {
+      width: fit-content;
+      border: 1px solid var(--paper);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      background: var(--yellow);
+    }
+    
+    .create-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    
+    .create-grid.narrow {
+      max-width: 380px;
+    }
+    
+    .create-grid .wide {
+      grid-column: 1 / -1;
+    }
+    
+    .button {
+      min-height: 42px;
+      border: 2px solid var(--line);
+      border-radius: 30px;
+      padding: 9px 16px;
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 700;
+      transition: background-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+    }
+    
+    .button:hover {
+      background: var(--accent-soft);
+      box-shadow: 3px 3px 0 var(--line);
+      transform: translate(-1px, -1px);
+    }
+    
+    .button:active {
+      transform: translate(0, 0);
+      box-shadow: 1px 1px 0 var(--line);
+    }
+    
+    .button.primary {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    
+    .button.primary:hover {
+      background: var(--accent);
+      color: var(--ink);
+    }
+    
+    .create-grid .button,
+    .create-grid .button.primary {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    
+    .create-grid .button:hover,
+    .create-grid .button.primary:hover {
+      background: var(--accent);
+      color: var(--ink);
+    }
+    
+    .button.ghost {
+      background: transparent;
+    }
+    
+    .button.danger {
+      border-color: var(--danger);
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    
+    .button.block {
+      width: 100%;
+    }
+    
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+    
+    .field.compact {
+      gap: 6px;
+    }
+    
+    .field > span,
+    .field-label {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 12px 13px;
+    }
+    
+    textarea {
+      min-height: 126px;
+      resize: vertical;
+    }
+    
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--muted-2);
+    }
+    
+    input:focus,
+    textarea:focus,
+    select:focus,
+    button:focus {
+      outline: 3px solid rgba(32, 21, 255, 0.22);
+      outline-offset: 2px;
+    }
+    
+    .entry-list {
+      display: grid;
+      gap: 10px;
+      overflow: auto;
+      padding: 4px 2px 4px 0;
+    }
+    
+    .entry-card {
+      display: grid;
+      gap: 6px;
+      width: 100%;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      padding: 13px;
+      text-align: left;
+      transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+    }
+    
+    .entry-card:hover {
+      background: var(--accent-soft);
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 var(--line);
+    }
+    
+    .entry-card.active {
+      background: var(--accent);
+      box-shadow: 4px 4px 0 var(--line);
+    }
+    
+    .entry-title {
+      font-weight: 800;
+    }
+    
+    .entry-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .backup-box {
+      display: grid;
+      gap: 9px;
+      margin-top: auto;
+      border-top: 2px solid var(--line);
+      padding-top: 16px;
+    }
+    
+    .workspace {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+    }
+    
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      border-bottom: 2px solid var(--line);
+      background: rgba(244, 244, 239, 0.92);
+      padding: 18px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      backdrop-filter: blur(12px);
+    }
+    
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    
+    .title-input {
+      border: 0;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      padding: 0 0 4px;
+      font-size: clamp(25px, 3vw, 38px);
+      font-weight: 800;
+      line-height: 1.08;
+    }
+    
+    .title-input:focus {
+      outline: 0;
+      border-color: var(--line);
+    }
+    
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    
+    .editor-panel,
+    .empty-state {
+      width: min(100%, 1060px);
+      padding: 26px;
+    }
+    
+    .meta-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 250px) minmax(220px, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    
+    .storage-note {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      background:
+        linear-gradient(90deg, var(--yellow) 0 12px, var(--paper) 12px);
+      padding: 14px 16px 14px 28px;
+      margin-bottom: 18px;
+      box-shadow: 4px 4px 0 var(--line);
+    }
+    
+    .storage-note-title {
+      margin: 0 0 4px;
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    
+    .storage-note p:not(.storage-note-title) {
+      margin: 0;
+      max-width: 720px;
+      color: var(--ink-soft);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .storage-note-button {
+      white-space: nowrap;
+    }
+    
+    .notice {
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      background: var(--yellow);
+      padding: 15px 16px;
+      margin-bottom: 18px;
+      box-shadow: var(--soft-shadow);
+    }
+    
+    .notice h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    
+    .notice p {
+      margin: 0;
+    }
+    
+    .notice ul {
+      margin: 0;
+      padding-left: 18px;
+      font-weight: 600;
+    }
+    
+    .section {
+      display: grid;
+      gap: 16px;
+      border: 2px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+    
+    .section-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      gap: 12px;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 13px;
+    }
+    
+    .section-header h2 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+      line-height: 1;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    
+    .step-index {
+      min-width: 38px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--ink);
+      padding: 5px 9px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    
+    .field-grid {
+      display: grid;
+      gap: 15px;
+    }
+    
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .chip {
+      min-height: 36px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      padding: 7px 12px;
+      font-weight: 700;
+    }
+    
+    .chip:hover {
+      background: var(--accent-soft);
+    }
+    
+    .chip[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--paper);
+    }
+    
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    input[type="range"] {
+      padding: 0;
+      accent-color: var(--accent);
+    }
+    
+    .range-value {
+      min-width: 58px;
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      background: var(--accent);
+      padding: 7px 9px;
+      text-align: center;
+      font-weight: 800;
+    }
+    
+    .feelings-editor {
+      display: grid;
+      gap: 10px;
+    }
+    
+    .feeling-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.8fr) minmax(230px, 1.2fr) 44px;
+      gap: 12px;
+      align-items: end;
+      border: 2px dashed var(--line);
+      border-radius: 16px;
+      background: #fffaf7;
+      padding: 13px;
+    }
+    
+    .feeling-row:not(:has(.remove-feeling)) {
+      grid-template-columns: minmax(170px, 0.8fr) minmax(230px, 1.2fr);
+    }
+    
+    .icon-button {
+      display: inline-flex;
+      width: 44px;
+      height: 44px;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--line);
+      border-radius: 50%;
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 26px;
+      font-weight: 500;
+      line-height: 1;
+    }
+    
+    .icon-button:hover {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    
+    .add-feeling {
+      justify-self: start;
+    }
+    
+    .radio-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    
+    .radio-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      padding: 9px 11px;
+      background: var(--paper);
+      font-weight: 700;
+    }
+    
+    .radio-card:has(input:checked) {
+      background: var(--accent);
+      box-shadow: 3px 3px 0 var(--line);
+    }
+    
+    .radio-card input {
+      width: auto;
+      accent-color: var(--ink);
+    }
+    
+    .branch-box {
+      display: grid;
+      gap: 13px;
+      border: 2px dashed var(--line);
+      border-radius: 18px;
+      background: #fffaf7;
+      padding: 15px;
+    }
+    
+    .switch-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+    }
+    
+    .switch-row input {
+      width: auto;
+      accent-color: var(--accent);
+    }
+    
+    .empty-state {
+      align-self: start;
+      display: grid;
+      gap: 14px;
+    }
+    
+    .empty-state h2 {
+      margin: 0;
+      max-width: 620px;
+      font-size: clamp(34px, 6vw, 70px);
+      line-height: 0.95;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    
+    .empty-state p {
+      margin: 0;
+      max-width: 560px;
+      color: var(--ink-soft);
+      font-weight: 600;
+    }
+    
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      max-width: min(560px, calc(100vw - 28px));
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: var(--ink);
+      color: var(--paper);
+      padding: 11px 16px;
+      font-weight: 700;
+      text-align: center;
+      transition: opacity 140ms ease, transform 140ms ease;
+      z-index: 10;
+    }
+    
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    .hidden,
+    .print-root {
+      display: none;
+    }
+    
+    @media (max-width: 1500px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+    
+      .actions {
+        justify-content: flex-start;
+      }
+    }
+    
+    @media (max-width: 980px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+    
+      .sidebar {
+        border-right: 0;
+        border-bottom: 2px solid var(--line);
+      }
+    
+      .brand {
+        grid-template-columns: 1fr auto;
+        align-items: end;
+      }
+    
+      .entry-list {
+        max-height: 260px;
+      }
+    
+      .topbar {
+        position: static;
+        grid-template-columns: 1fr;
+      }
+    
+      .actions {
+        justify-content: flex-start;
+      }
+    }
+    
+    @media (max-width: 640px) {
+      :host {
+        background-size: 28px 28px;
+      }
+    
+      .sidebar,
+      .editor-panel,
+      .empty-state,
+      .topbar {
+        padding: 16px;
+      }
+    
+      .brand,
+      .create-grid,
+      .meta-row,
+      .storage-note,
+      .radio-grid {
+        grid-template-columns: 1fr;
+      }
+    
+      .actions .button {
+        flex: 1 1 148px;
+      }
+    
+      .section {
+        padding: 14px;
+        box-shadow: 5px 5px 0 var(--line);
+      }
+    
+      .section-header {
+        grid-template-columns: 1fr;
+      }
+    
+      .step-index {
+        width: fit-content;
+      }
+    
+      .range-row {
+        grid-template-columns: 1fr;
+      }
+    
+      .feeling-row,
+      .feeling-row:not(:has(.remove-feeling)) {
+        grid-template-columns: 1fr;
+      }
+    
+      .remove-feeling {
+        justify-self: end;
+      }
+    }
+    
+    @media print {
+      @page {
+        size: A4;
+        margin: 14mm;
+      }
+    
+      :host(.printing) {
+        background: #ffffff;
+        color: #111111;
+      }
+    
+      :host(.printing) .app-shell,
+      :host(.printing) .toast {
+        display: none;
+      }
+    
+      :host(.printing) .print-root {
+        display: block;
+        padding: 0;
+        color: #111111;
+        font-family: "Segoe UI", Arial, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    
+      .print-entry {
+        max-width: 180mm;
+        margin: 0 auto;
+        font-size: 10.5pt;
+        line-height: 1.45;
+      }
+    
+      .print-cover {
+        border: 2pt solid #111111;
+        border-radius: 12pt;
+        background: #111111;
+        color: #ffffff;
+        padding: 15pt;
+        margin: 0 0 10pt;
+        break-inside: avoid;
+      }
+    
+      .print-cover-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10pt;
+        margin-bottom: 12pt;
+      }
+    
+      .print-kicker,
+      .print-type {
+        display: inline-block;
+        border: 1pt solid currentColor;
+        border-radius: 999pt;
+        padding: 4pt 8pt;
+        font-size: 8pt;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+    
+      .print-type {
+        background: #ff8562;
+        border-color: #ff8562;
+        color: #111111;
+      }
+    
+      .print-entry h1 {
+        margin: 0 0 13pt;
+        font-size: 28pt;
+        font-weight: 800;
+        line-height: 0.98;
+        text-transform: uppercase;
+      }
+    
+      .print-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 7pt;
+      }
+    
+      .print-meta-item {
+        border: 1pt solid #ffffff;
+        border-radius: 8pt;
+        padding: 6pt 7pt;
+      }
+    
+      .print-meta-item span {
+        display: block;
+        margin-bottom: 2pt;
+        color: #cfcfcf;
+        font-size: 7pt;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+    
+      .print-meta-item strong {
+        display: block;
+        font-size: 10pt;
+        font-weight: 800;
+      }
+    
+      .print-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5pt;
+        margin-top: 9pt;
+      }
+    
+      .print-tags span {
+        border: 1pt solid #ffffff;
+        border-radius: 999pt;
+        padding: 3pt 7pt;
+        font-size: 8pt;
+        font-weight: 700;
+      }
+    
+      .print-note {
+        border: 1.5pt solid #111111;
+        border-radius: 9pt;
+        background: #ffe05f;
+        padding: 7pt 9pt;
+        margin: 0 0 10pt;
+        font-size: 9pt;
+        font-weight: 700;
+        break-inside: avoid;
+      }
+    
+      .print-section {
+        border: 1.5pt solid #111111;
+        border-radius: 10pt;
+        background: #ffffff;
+        padding: 9pt;
+        margin: 0 0 9pt;
+        break-inside: avoid;
+      }
+    
+      .print-section-header {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 7pt;
+        align-items: center;
+        border-bottom: 1pt solid #111111;
+        padding-bottom: 6pt;
+        margin-bottom: 8pt;
+        break-after: avoid;
+      }
+    
+      .print-step {
+        display: inline-flex;
+        min-width: 22pt;
+        min-height: 22pt;
+        align-items: center;
+        justify-content: center;
+        border: 1.5pt solid #111111;
+        border-radius: 999pt;
+        background: #ff8562;
+        color: #111111;
+        padding: 3pt 6pt;
+        font-size: 8pt;
+        font-weight: 800;
+      }
+    
+      .print-entry h2 {
+        margin: 0;
+        font-size: 15pt;
+        font-weight: 800;
+        line-height: 1.08;
+        text-transform: uppercase;
+      }
+    
+      .print-fields {
+        display: grid;
+        gap: 7pt;
+      }
+    
+      .print-field {
+        border-left: 4pt solid #ff8562;
+        border-radius: 7pt;
+        background: #f7f7f2;
+        padding: 7pt 8pt;
+        break-inside: avoid;
+      }
+    
+      .print-field-label {
+        margin-bottom: 4pt;
+        color: #111111;
+        font-size: 8pt;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+      }
+    
+      .print-field-value {
+        margin: 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        color: #111111;
+        font-size: 10.5pt;
+        font-weight: 500;
+      }
+    
+      .print-decision {
+        background: #fff7f3;
+      }
+    }
+  </style>
+
+  <div class="app-shell">
+      <aside class="sidebar" aria-label="Записи">
+        <div class="brand">
+          <div>
+            <h1>Стресс-дневник</h1>
+            <p>Диагностика, дневник, действия</p>
+          </div>
+          <span class="local-badge">Локально</span>
+        </div>
+  
+        <div class="create-grid" aria-label="Создать запись">
+          <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
+          <button class="button" type="button" id="newDiagnosticButton">Диагностика</button>
+          <button class="button wide" type="button" id="newActionsButton">Охранительные действия</button>
+        </div>
+  
+        <label class="field compact">
+          <span>Поиск</span>
+          <input type="search" id="searchInput" autocomplete="off" placeholder="Ситуация, мысль, чувство">
+        </label>
+  
+        <div class="entry-list" id="entryList" aria-label="Список записей"></div>
+  
+        <div class="backup-box">
+          <button class="button block" type="button" id="backupButton">Скачать резервную копию</button>
+          <button class="button ghost block" type="button" id="importButton">Импортировать JSON</button>
+          <input class="hidden" type="file" id="importFileInput" accept="application/json,.json">
+        </div>
+      </aside>
+  
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="entryTypeLabel">Запись</p>
+            <input class="title-input" id="titleInput" type="text" autocomplete="off" aria-label="Название записи">
+          </div>
+          <div class="actions" aria-label="Действия с записью">
+            <button class="button" type="button" id="duplicateButton">Дублировать</button>
+            <button class="button" type="button" id="copyButton">Скопировать</button>
+            <button class="button" type="button" id="downloadMarkdownButton">Markdown</button>
+            <button class="button" type="button" id="printButton">Сохранить PDF</button>
+            <button class="button danger" type="button" id="deleteButton">Удалить</button>
+          </div>
+        </header>
+  
+        <section class="editor-panel" id="editorPanel">
+          <div class="meta-row">
+            <label class="field">
+              <span>Дата ситуации</span>
+              <input type="date" id="entryDateInput">
+            </label>
+            <label class="field">
+              <span>Теги</span>
+              <input type="text" id="tagsInput" autocomplete="off" placeholder="работа, отношения, вечер">
+            </label>
+          </div>
+  
+          <aside class="storage-note" aria-label="Как хранятся записи">
+            <div>
+              <p class="storage-note-title">Записи хранятся только в этом браузере</p>
+              <p>
+                Они не отправляются на сервер и не появятся сами на другом устройстве.
+                Если при чистке истории или кэша удалить данные сайта, записи могут стереться.
+              </p>
+            </div>
+            <button class="button storage-note-button" type="button" id="storagePrintButton">Сохранить PDF</button>
+          </aside>
+  
+          <div id="formRoot"></div>
+        </section>
+  
+        <section class="empty-state hidden" id="emptyState">
+          <h2>Пока нет записей</h2>
+          <p>Создай дневник, диагностику или разбор охранительных и избегающих действий.</p>
+          <div class="create-grid narrow">
+            <button class="button primary" type="button" id="emptyNewDiaryButton">Дневник</button>
+            <button class="button" type="button" id="emptyNewDiagnosticButton">Диагностика</button>
+            <button class="button wide" type="button" id="emptyNewActionsButton">Охранительные действия</button>
+          </div>
+        </section>
+      </main>
+    </div>
+  
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="print-root" id="printRoot"></div>
+</template>
+
+<script>
+(() => {
+  "use strict";
+
+  const host = document.getElementById("mdpsy-stress-diary-host");
+  const template = document.getElementById("mdpsy-stress-diary-template");
+  if (!host || !template || host.shadowRoot) return;
+
+  const root = host.attachShadow({ mode: "open" });
+  root.appendChild(template.content.cloneNode(true));
+  template.remove();
+
+  const STORAGE_KEY = "mdpsy.stress-diary.entries.v1";
+  const ACTIVE_KEY = "mdpsy.stress-diary.active-id.v1";
+  
+  const FEELINGS = ["страх", "обида", "вина", "стыд", "тревога", "разочарование", "грусть", "агрессия"];
+  
+  const TYPE_META = {
+    diary: {
+      label: "Дневник",
+      defaultTitle: "Новый дневник"
+    },
+    diagnostic: {
+      label: "Диагностика",
+      defaultTitle: "Новая диагностика"
+    },
+    actions: {
+      label: "Охранительные действия",
+      defaultTitle: "Новые действия"
+    }
+  };
+  
+  const DIAGNOSTIC_SECTIONS = [
+    {
+      title: "Ситуация",
+      index: "1",
+      fields: [
+        {
+          key: "situation",
+          label: "Ситуация",
+          hint: "Любая ситуация, которая беспокоит сейчас, в прошлом или будущем. Вспомни сам момент возникновения чувства.",
+          rows: 5
+        },
+        {
+          key: "bodySensations",
+          label: "Чувство в теле и телесные ощущения",
+          hint: "От горла до эпигастрии.",
+          rows: 3
+        },
+        {
+          key: "feelingIntensity",
+          label: "Сила чувства",
+          kind: "range"
+        },
+        {
+          key: "feelingName",
+          label: "Название чувства",
+          rows: 2
+        }
+      ]
+    },
+    {
+      title: "Усиление",
+      index: "2",
+      fields: [
+        {
+          key: "amplification",
+          label: "Что может произойти, чтобы чувство стало сильнее?",
+          hint: "Можно фантастическое, нелогичное или чрезмерное. Здесь не нужна рациональная проверка.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Какая я?",
+      index: "3",
+      fields: [
+        {
+          key: "selfDefinition",
+          label: "Какой я себя чувствую в ситуации с усилением?",
+          hint: "Прилагательное без 'не'.",
+          rows: 2
+        }
+      ]
+    },
+    {
+      title: "Еще усиление",
+      index: "4",
+      fields: [
+        {
+          key: "amplificationMore",
+          label: "Что еще может произойти в ситуации из пункта 2?",
+          hint: "Так, чтобы определение из пункта 3 стало сильнее.",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Образ себя и мира",
+      index: "5",
+      fields: [
+        {
+          key: "selfDefinitionStronger",
+          label: "Какой себя почувствуешь?",
+          hint: "Прилагательное без 'не'.",
+          rows: 2
+        },
+        {
+          key: "otherDefinitions",
+          label: "Какими ты видишь других людей?",
+          rows: 3
+        },
+        {
+          key: "worldDefinition",
+          label: "Какой мир?",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Кто бы мог усилить?",
+      index: "6",
+      fields: [
+        {
+          key: "amplifierPerson",
+          label: "Кто может появиться в сцене?",
+          hint: "Желательно знакомый до 12 лет. Можно подставить умершего человека как образ в сцене.",
+          rows: 3
+        },
+        {
+          key: "amplifierAction",
+          label: "Что он, она или они могли бы сказать или сделать?",
+          rows: 4
+        },
+        {
+          key: "worseVariant",
+          label: "Что было бы хуже?",
+          hint: "Никого, толпа незнакомых, знакомые, родственники, учитель, врач или другой вариант.",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Воспоминание",
+      index: "7",
+      fields: [
+        {
+          key: "childhoodMemory",
+          label: "Воспоминание или я из детства, связанные с этим человеком или толпой",
+          hint: "Если не приходит сразу, можно оставить пустым и вернуться позже.",
+          rows: 5
+        }
+      ]
+    }
+  ];
+  
+  const DIARY_SECTIONS = [
+    {
+      title: "Ситуация",
+      index: "1",
+      fields: [
+        {
+          key: "situation",
+          label: "Ситуация",
+          hint: "Любая ситуация, которая беспокоит сейчас, в прошлом или будущем. Вспомни сам момент возникновения чувства.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Тело",
+      index: "2",
+      fields: [
+        {
+          key: "bodySensations",
+          label: "Чувство в теле и телесные ощущения",
+          hint: "От горла до эпигастрии.",
+          rows: 4
+        },
+        {
+          key: "feelingIntensityBefore",
+          label: "Сила чувства",
+          kind: "range"
+        },
+        {
+          key: "bodyFeelingName",
+          label: "Название чувства",
+          rows: 2
+        }
+      ]
+    },
+    {
+      title: "Основное чувство",
+      index: "3",
+      fields: [
+        {
+          key: "coreFeeling",
+          label: "Какое чувство возникает?",
+          hint: "Выбери одно основное чувство. При панике или страхе смерти: представь, что это уже случилось, а ты призрак.",
+          kind: "chips",
+          options: FEELINGS
+        }
+      ]
+    },
+    {
+      title: "Мысли",
+      index: "4",
+      fields: [
+        {
+          key: "thoughtsFlow",
+          label: "Какие мысли вызывает это чувство?",
+          hint: "Весь поток мыслей как цитаты. Если одна мысль типа 'пиздец', спроси: 'и что это для меня значит?'",
+          rows: 6
+        },
+        {
+          key: "worstThought",
+          label: "Самая неприятная мысль",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Образ себя и мира",
+      index: "5",
+      fields: [
+        {
+          key: "selfDefinition",
+          label: "Какой себя почувствуешь в ситуации мыслей из пункта 4?",
+          rows: 3
+        },
+        {
+          key: "otherDefinitions",
+          label: "Какими ты видишь других людей?",
+          rows: 3
+        },
+        {
+          key: "worldDefinition",
+          label: "Какой мир?",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Поведение",
+      index: "6",
+      fields: [
+        {
+          key: "behavior",
+          label: "Что я делаю после мыслей в голове?",
+          hint: "Сними ситуацию пункта 1 с паузы и посмотри, что начал делать, начал бы делать или уже делаешь, чтобы этого не произошло.",
+          rows: 5
+        },
+        {
+          key: "problemSolved",
+          label: "Какую проблему решало действие?",
+          hint: "Если действие решало не реальную проблему, а облегчало чувство, переходи к рационализации.",
+          rows: 3
+        }
+      ]
+    }
+  ];
+  
+  const ACTION_SECTIONS = [
+    {
+      title: "Ситуация",
+      index: "1",
+      fields: [
+        {
+          key: "situation",
+          label: "Что происходит или что нужно сделать?",
+          hint: "Опиши конкретный момент или задачу, в которой появляется чувство.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Чувство и образ себя",
+      index: "2",
+      fields: [
+        {
+          key: "feelings",
+          label: "Какие чувства возникают и насколько они сильные?",
+          hint: "Можно добавить несколько чувств и указать силу каждого в процентах.",
+          kind: "feelings"
+        },
+        {
+          key: "selfDefinition",
+          label: "Каким я себя чувствую или каким боюсь оказаться?",
+          hint: "Например: слабым, глупым, навязчивым, плохим человеком.",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Охранительное действие",
+      index: "3",
+      fields: [
+        {
+          key: "protectiveAction",
+          label: "Что я делаю, чтобы снизить чувство или обезопасить себя?",
+          hint: "Например: беру кого-то с собой, долго готовлюсь, оправдываюсь, наблюдаю за другими.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Избегающее действие",
+      index: "4",
+      fields: [
+        {
+          key: "avoidantAction",
+          label: "Как я избегаю, откладываю или выхожу из ситуации?",
+          hint: "Например: нахожу другие дела, не открываю сообщение, обращаюсь только к знакомым людям.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Адаптивное поведение",
+      index: "5",
+      fields: [
+        {
+          key: "adaptiveBehavior",
+          label: "Что бы я сделал без чувства из пункта 2?",
+          hint: "Запиши прямое действие, которое решает задачу или выражает твоё настоящее решение.",
+          rows: 5
+        }
+      ]
+    }
+  ];
+  
+  const RATIONALIZATION_SECTIONS = [
+    {
+      title: "Проверка мысли",
+      index: "7.1-7.3",
+      fields: [
+        {
+          key: "evidenceFor",
+          label: "Какие доказательства того, что моя мысль верна?",
+          hint: "Мысль из пункта 4 дневника.",
+          rows: 4
+        },
+        {
+          key: "evidenceAgainst",
+          label: "Какие доказательства того, что моя мысль неверна или не совсем верна?",
+          rows: 4
+        },
+        {
+          key: "alternativeView",
+          label: "Есть ли другой взгляд и альтернативное объяснение?",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Исходы",
+      index: "7.4-7.6",
+      fields: [
+        {
+          key: "worstOutcome",
+          label: "Что самое плохое может произойти и смогу ли я справиться? Как справлюсь?",
+          rows: 4
+        },
+        {
+          key: "bestOutcome",
+          label: "Что самое лучшее может произойти?",
+          rows: 3
+        },
+        {
+          key: "realisticOutcome",
+          label: "Какой реалистичный результат?",
+          rows: 3
+        },
+        {
+          key: "thoughtConsequences",
+          label: "Каковы последствия для меня от мыслей из пункта 4 дневника?",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Действие",
+      index: "7.7-7.12",
+      fields: [
+        {
+          key: "thinkingChange",
+          label: "Что изменится от изменения моего мышления?",
+          rows: 3
+        },
+        {
+          key: "friendAdvice",
+          label: "Что бы я посоветовал другу в такой же ситуации?",
+          rows: 3
+        },
+        {
+          key: "nextAction",
+          label: "Что мне надо сделать в этой ситуации?",
+          rows: 3
+        },
+        {
+          key: "aiAction",
+          label: "Что бы сделал искусственный интеллект в моей ситуации?",
+          rows: 3
+        },
+        {
+          key: "withoutFeeling",
+          label: "Что бы я сделал, если бы возникшего чувства не было?",
+          rows: 3
+        },
+        {
+          key: "feelingIntensityAfter",
+          label: "Сила чувства после рационализации",
+          kind: "range"
+        }
+      ]
+    }
+  ];
+  
+  let entries = [];
+  let activeId = "";
+  let toastTimer = 0;
+  let listRenderTimer = 0;
+  let printCleanupTimer = 0;
+  let titleBeforePrint = "";
+  
+  const elements = {};
+  
+  bindElements();
+  load();
+  if (entries.length === 0) {
+    createEntry("diary", { silent: true });
+  }
+  render();
+  bindEvents();
+  
+  function bindElements() {
+    elements.entryList = root.getElementById("entryList");
+    elements.searchInput = root.getElementById("searchInput");
+    elements.titleInput = root.getElementById("titleInput");
+    elements.entryTypeLabel = root.getElementById("entryTypeLabel");
+    elements.entryDateInput = root.getElementById("entryDateInput");
+    elements.tagsInput = root.getElementById("tagsInput");
+    elements.formRoot = root.getElementById("formRoot");
+    elements.editorPanel = root.getElementById("editorPanel");
+    elements.emptyState = root.getElementById("emptyState");
+    elements.toast = root.getElementById("toast");
+    elements.printRoot = root.getElementById("printRoot");
+    elements.importFileInput = root.getElementById("importFileInput");
+  }
+  
+  function bindEvents() {
+    root.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
+    root.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+    root.getElementById("newActionsButton").addEventListener("click", () => createEntry("actions"));
+    root.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
+    root.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+    root.getElementById("emptyNewActionsButton").addEventListener("click", () => createEntry("actions"));
+    root.getElementById("duplicateButton").addEventListener("click", duplicateActive);
+    root.getElementById("deleteButton").addEventListener("click", deleteActive);
+    root.getElementById("copyButton").addEventListener("click", copyActive);
+    root.getElementById("downloadMarkdownButton").addEventListener("click", downloadActiveMarkdown);
+    root.getElementById("printButton").addEventListener("click", printActive);
+    root.getElementById("storagePrintButton").addEventListener("click", printActive);
+    root.getElementById("backupButton").addEventListener("click", downloadBackup);
+    root.getElementById("importButton").addEventListener("click", () => elements.importFileInput.click());
+    elements.importFileInput.addEventListener("change", importBackup);
+  
+    elements.searchInput.addEventListener("input", renderList);
+    elements.entryList.addEventListener("click", handleEntryListClick);
+  
+    elements.titleInput.addEventListener("input", () => {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      entry.title = elements.titleInput.value;
+      touchAndSave(entry);
+    });
+  
+    elements.entryDateInput.addEventListener("input", () => {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      entry.date = elements.entryDateInput.value;
+      touchAndSave(entry);
+    });
+  
+    elements.tagsInput.addEventListener("input", () => {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      entry.tags = elements.tagsInput.value;
+      touchAndSave(entry);
+    });
+  
+    elements.formRoot.addEventListener("input", handleFormInput);
+    elements.formRoot.addEventListener("change", handleFormChange);
+    elements.formRoot.addEventListener("click", handleFormClick);
+    window.addEventListener("afterprint", cleanupPrint);
+  }
+  
+  function load() {
+    try {
+      entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (!Array.isArray(entries)) entries = [];
+    } catch {
+      entries = [];
+    }
+    entries = entries.filter(shouldPersistEntry);
+    activeId = localStorage.getItem(ACTIVE_KEY) || "";
+    if (!entries.some((entry) => entry.id === activeId)) {
+      activeId = entries[0]?.id || "";
+    }
+  }
+  
+  function save() {
+    const persistedEntries = getPersistedEntries();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedEntries));
+    if (persistedEntries.some((entry) => entry.id === activeId)) {
+      localStorage.setItem(ACTIVE_KEY, activeId);
+    } else {
+      localStorage.removeItem(ACTIVE_KEY);
+    }
+  }
+  
+  function createEntry(type, options = {}) {
+    discardEmptyEntries();
+    const now = new Date();
+    const entry = {
+      id: createId(),
+      type,
+      title: TYPE_META[type].defaultTitle,
+      date: toDateInputValue(now),
+      tags: "",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      fields: type === "actions" ? { feelings: [{ name: "", intensity: null }] } : {},
+      rationalization: {},
+      rationalizationEnabled: false,
+      notes: ""
+    };
+    entries.unshift(entry);
+    activeId = entry.id;
+    save();
+    render();
+    if (!options.silent) {
+      showToast("Запись создана");
+    }
+  }
+  
+  function duplicateActive() {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    if (!shouldPersistEntry(entry)) {
+      showToast("Пустую запись дублировать не нужно");
+      return;
+    }
+    const now = new Date().toISOString();
+    const copy = JSON.parse(JSON.stringify(entry));
+    copy.id = createId();
+    copy.title = `${entry.title || TYPE_META[entry.type].defaultTitle} - копия`;
+    copy.createdAt = now;
+    copy.updatedAt = now;
+    entries.unshift(copy);
+    activeId = copy.id;
+    save();
+    render();
+    showToast("Копия создана");
+  }
+  
+  function deleteActive() {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    const confirmed = window.confirm("Удалить эту запись? Отменить удаление не получится.");
+    if (!confirmed) return;
+    entries = entries.filter((item) => item.id !== entry.id);
+    activeId = entries[0]?.id || "";
+    save();
+    render();
+    showToast("Запись удалена");
+  }
+  
+  function render() {
+    renderList();
+    renderEditor();
+  }
+  
+  function renderList() {
+    const query = elements.searchInput.value.trim().toLowerCase();
+    const sorted = getPersistedEntries().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const filtered = query
+      ? sorted.filter((entry) => searchBlob(entry).includes(query))
+      : sorted;
+  
+    elements.entryList.innerHTML = filtered.length
+      ? filtered.map(renderEntryCard).join("")
+      : `<p class="hint">${query ? "Ничего не найдено." : "Сохраненных записей пока нет."}</p>`;
+  }
+  
+  function renderEntryCard(entry) {
+    const title = entry.title || TYPE_META[entry.type].defaultTitle;
+    const meta = [
+      TYPE_META[entry.type].label,
+      formatDate(entry.date),
+      entry.tags ? entry.tags : ""
+    ].filter(Boolean).join(" · ");
+    const activeClass = entry.id === activeId ? " active" : "";
+    return `
+      <button class="entry-card${activeClass}" type="button" data-entry-id="${escapeAttr(entry.id)}">
+        <span class="entry-title">${escapeHTML(title)}</span>
+        <span class="entry-meta">${escapeHTML(meta)}</span>
+      </button>
+    `;
+  }
+  
+  function renderEditor() {
+    const entry = getActiveEntry();
+    const hasEntry = Boolean(entry);
+    elements.editorPanel.classList.toggle("hidden", !hasEntry);
+    elements.emptyState.classList.toggle("hidden", hasEntry);
+    root.querySelector(".topbar").classList.toggle("hidden", !hasEntry);
+  
+    if (!entry) return;
+  
+    elements.entryTypeLabel.textContent = TYPE_META[entry.type].label;
+    elements.titleInput.value = entry.title || TYPE_META[entry.type].defaultTitle;
+    elements.entryDateInput.value = entry.date || "";
+    elements.tagsInput.value = entry.tags || "";
+    const renderers = {
+      diary: renderDiary,
+      diagnostic: renderDiagnostic,
+      actions: renderActions
+    };
+    elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
+  }
+  
+  function renderDiagnostic(entry) {
+    const notice = `
+      <div class="notice">
+        <h2>Важно</h2>
+        <ul>
+          <li>Создать одну большую картину или сцену.</li>
+          <li>Придумывать без страха странности.</li>
+          <li>Почувствовать эмоции и чувства, не включать рациональное мышление.</li>
+        </ul>
+      </div>
+    `;
+    return notice + DIAGNOSTIC_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("") + renderNotes(entry);
+  }
+  
+  function renderDiary(entry) {
+    const notice = `
+      <div class="notice">
+        <h2>Важно</h2>
+        <ul>
+          <li>Представить момент детально, как картинку или фильм.</li>
+          <li>В пункте 3 не спорить с собой и не включать сознательные мысли.</li>
+          <li>Выделить одну самую неприятную мысль.</li>
+        </ul>
+      </div>
+    `;
+    const diary = DIARY_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
+    return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
+  }
+  
+  function renderActions(entry) {
+    const notice = `
+      <div class="notice">
+        <h2>Смотри на реальные действия</h2>
+        <ul>
+          <li>Охранительное действие помогает снизить чувство, оставаясь рядом с ситуацией.</li>
+          <li>Избегающее действие откладывает ситуацию, уводит от неё или не даёт действовать прямо.</li>
+          <li>Адаптивное поведение - то, что ты выбрал бы без чувства из пункта 2.</li>
+        </ul>
+      </div>
+    `;
+    const sections = ACTION_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
+    return notice + sections + renderNotes(entry);
+  }
+  
+  function renderNotes(entry) {
+    return `
+      <section class="section">
+        <div class="section-header">
+          <h2>Заметки</h2>
+          <span class="step-index">после</span>
+        </div>
+        <label class="field">
+          <span>Впечатления и инсайты после заполнения</span>
+          <p class="hint">Что стало понятнее, что хочется запомнить, что обсудить с психологом.</p>
+          <textarea rows="6" data-path="notes">${escapeHTML(entry.notes || "")}</textarea>
+        </label>
+      </section>
+    `;
+  }
+  
+  function renderProblemBranch(entry) {
+    const value = entry.fields.realProblemSolved || "";
+    const shouldShowRationalization = entry.rationalizationEnabled || value === "no";
+    const radio = `
+      <section class="section">
+        <div class="section-header">
+          <h2>Переход к рационализации</h2>
+          <span class="step-index">после пункта 6</span>
+        </div>
+        <div class="branch-box">
+          <div>
+            <p class="field-label">Действие из пункта 6 решало реальную проблему?</p>
+            <p class="hint">Если действие главным образом облегчало чувство, рационализация обычно нужна.</p>
+          </div>
+          <div class="radio-grid">
+            ${renderRadio("fields.realProblemSolved", "yes", "Да", value)}
+            ${renderRadio("fields.realProblemSolved", "no", "Нет", value)}
+            ${renderRadio("fields.realProblemSolved", "unclear", "Неясно", value)}
+          </div>
+          <label class="switch-row">
+            <input type="checkbox" data-path="rationalizationEnabled" ${entry.rationalizationEnabled ? "checked" : ""}>
+            <span>Показать рационализацию</span>
+          </label>
+        </div>
+      </section>
+    `;
+  
+    if (!shouldShowRationalization) return radio;
+  
+    const thought = entry.fields.worstThought || "";
+    const thoughtBox = thought
+      ? `<div class="notice"><h2>Мысль для проверки</h2><p>${escapeHTML(thought)}</p></div>`
+      : "";
+    const rationalization = RATIONALIZATION_SECTIONS
+      .map((section) => renderSection(section, entry.rationalization, "rationalization"))
+      .join("");
+    return radio + thoughtBox + rationalization;
+  }
+  
+  function renderSection(section, values, rootPath) {
+    return `
+      <section class="section">
+        <div class="section-header">
+          <h2>${escapeHTML(section.title)}</h2>
+          <span class="step-index">${escapeHTML(section.index)}</span>
+        </div>
+        <div class="field-grid">
+          ${section.fields.map((field) => renderField(field, values[field.key], `${rootPath}.${field.key}`)).join("")}
+        </div>
+      </section>
+    `;
+  }
+  
+  function renderField(field, value = "", path) {
+    if (field.kind === "feelings") {
+      return renderFeelingsField(field, value, path);
+    }
+  
+    if (field.kind === "range") {
+      const numberValue = value === undefined || value === "" || Number.isNaN(Number(value)) ? 50 : Number(value);
+      return `
+        <label class="field">
+          <span>${escapeHTML(field.label)}</span>
+          ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+          <div class="range-row">
+            <input type="range" min="0" max="100" step="1" value="${numberValue}" data-path="${escapeAttr(path)}">
+            <output class="range-value">${numberValue}%</output>
+          </div>
+        </label>
+      `;
+    }
+  
+    if (field.kind === "chips") {
+      const current = String(value || "");
+      const chips = field.options.map((option) => `
+        <button class="chip" type="button" data-chip-path="${escapeAttr(path)}" data-chip-value="${escapeAttr(option)}" aria-pressed="${current === option ? "true" : "false"}">
+          ${escapeHTML(option)}
+        </button>
+      `).join("");
+      return `
+        <div class="field">
+          <span>${escapeHTML(field.label)}</span>
+          ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+          <div class="chips">${chips}</div>
+          <input type="text" value="${escapeAttr(current)}" data-path="${escapeAttr(path)}" autocomplete="off" placeholder="Другое чувство">
+        </div>
+      `;
+    }
+  
+    return `
+      <label class="field">
+        <span>${escapeHTML(field.label)}</span>
+        ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+        <textarea rows="${field.rows || 4}" data-path="${escapeAttr(path)}">${escapeHTML(value || "")}</textarea>
+      </label>
+    `;
+  }
+  
+  function renderFeelingsField(field, value, path) {
+    const feelings = Array.isArray(value) && value.length
+      ? value
+      : [{ name: "", intensity: null }];
+    return `
+      <div class="field">
+        <span>${escapeHTML(field.label)}</span>
+        ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+        <div class="feelings-editor">
+          ${feelings.map((feeling, index) => {
+            const intensity = feeling?.intensity === null || feeling?.intensity === undefined || feeling?.intensity === ""
+              ? 50
+              : Number(feeling.intensity);
+            return `
+              <div class="feeling-row">
+                <label class="field feeling-name">
+                  <span>Чувство ${index + 1}</span>
+                  <input type="text" value="${escapeAttr(feeling?.name || "")}" data-path="${escapeAttr(`${path}.${index}.name`)}" autocomplete="off" placeholder="например, тревога">
+                </label>
+                <label class="field feeling-intensity">
+                  <span>Сила чувства</span>
+                  <div class="range-row">
+                    <input type="range" min="0" max="100" step="1" value="${intensity}" data-path="${escapeAttr(`${path}.${index}.intensity`)}">
+                    <output class="range-value">${intensity}%</output>
+                  </div>
+                </label>
+                ${feelings.length > 1 ? `
+                  <button class="icon-button remove-feeling" type="button" data-remove-feeling-index="${index}" title="Удалить чувство" aria-label="Удалить чувство ${index + 1}">&times;</button>
+                ` : ""}
+              </div>
+            `;
+          }).join("")}
+        </div>
+        <button class="button add-feeling" type="button" data-add-feeling>Добавить чувство</button>
+      </div>
+    `;
+  }
+  
+  function renderRadio(path, value, label, current) {
+    const id = `${path}-${value}`.replace(/[^a-z0-9_-]/gi, "-");
+    return `
+      <label class="radio-card" for="${escapeAttr(id)}">
+        <input id="${escapeAttr(id)}" type="radio" name="${escapeAttr(path)}" value="${escapeAttr(value)}" data-path="${escapeAttr(path)}" ${current === value ? "checked" : ""}>
+        <span>${escapeHTML(label)}</span>
+      </label>
+    `;
+  }
+  
+  function handleEntryListClick(event) {
+    const card = event.target.closest("[data-entry-id]");
+    if (!card) return;
+    activeId = card.dataset.entryId;
+    save();
+    render();
+  }
+  
+  function handleFormInput(event) {
+    const control = event.target.closest("[data-path]");
+    if (!control) return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+  
+    ensureFeelingsArray(entry, control.dataset.path);
+    setPath(entry, control.dataset.path, getControlValue(control));
+    if (control.type === "range") {
+      const output = control.parentElement.querySelector("output");
+      if (output) output.textContent = `${control.value}%`;
+    }
+    touchAndSave(entry);
+  }
+  
+  function handleFormChange(event) {
+    const control = event.target.closest("[data-path]");
+    if (!control) return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+  
+    ensureFeelingsArray(entry, control.dataset.path);
+    setPath(entry, control.dataset.path, getControlValue(control));
+    touchAndSave(entry);
+  
+    if (control.type === "radio" || control.type === "checkbox") {
+      renderEditorPreservingViewport();
+    }
+  }
+  
+  function handleFormClick(event) {
+    const addFeeling = event.target.closest("[data-add-feeling]");
+    const removeFeeling = event.target.closest("[data-remove-feeling-index]");
+    if (addFeeling || removeFeeling) {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      ensureFeelingsArray(entry, "fields.feelings.0.name");
+      if (addFeeling) {
+        entry.fields.feelings.push({ name: "", intensity: null });
+      } else {
+        const index = Number(removeFeeling.dataset.removeFeelingIndex);
+        if (Number.isInteger(index) && entry.fields.feelings.length > 1) {
+          entry.fields.feelings.splice(index, 1);
+        }
+      }
+      touchAndSave(entry);
+      renderEditorPreservingViewport();
+      return;
+    }
+  
+    const chip = event.target.closest("[data-chip-path]");
+    if (!chip) return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+    setPath(entry, chip.dataset.chipPath, chip.dataset.chipValue);
+    touchAndSave(entry);
+    renderEditor();
+  }
+  
+  function ensureFeelingsArray(entry, path) {
+    if (!String(path || "").startsWith("fields.feelings.")) return;
+    if (!entry.fields || typeof entry.fields !== "object") entry.fields = {};
+    if (!Array.isArray(entry.fields.feelings)) {
+      entry.fields.feelings = [{ name: "", intensity: null }];
+    }
+    const match = String(path).match(/^fields\.feelings\.(\d+)\.name$/);
+    const feeling = match ? entry.fields.feelings[Number(match[1])] : null;
+    if (feeling && (feeling.intensity === null || feeling.intensity === undefined || feeling.intensity === "")) {
+      feeling.intensity = 50;
+    }
+  }
+  
+  function renderEditorPreservingViewport() {
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    renderEditor();
+    window.scrollTo(scrollX, scrollY);
+    window.requestAnimationFrame(() => {
+      window.scrollTo(scrollX, scrollY);
+    });
+  }
+  
+  function getControlValue(control) {
+    if (control.type === "checkbox") return control.checked;
+    if (control.type === "range") return Number(control.value);
+    return control.value;
+  }
+  
+  function setPath(target, path, value) {
+    const parts = path.split(".");
+    let current = target;
+    for (let index = 0; index < parts.length - 1; index += 1) {
+      const part = parts[index];
+      if (typeof current[part] !== "object" || current[part] === null) {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+  
+  function touchAndSave(entry) {
+    entry.updatedAt = new Date().toISOString();
+    save();
+    scheduleListRender();
+  }
+  
+  function scheduleListRender() {
+    window.clearTimeout(listRenderTimer);
+    listRenderTimer = window.setTimeout(renderList, 180);
+  }
+  
+  function copyActive() {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    const text = formatEntryMarkdown(entry);
+    copyText(text)
+      .then(() => showToast("Запись скопирована"))
+      .catch(() => showToast("Не удалось скопировать"));
+  }
+  
+  function downloadActiveMarkdown() {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    const fileName = `${formatExportBaseName(entry)}.md`;
+    downloadBlob(formatEntryMarkdown(entry), fileName, "text/markdown;charset=utf-8");
+  }
+  
+  function printActive() {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    if (!shouldPersistEntry(entry)) {
+      showToast("Сначала заполни хотя бы одно поле");
+      return;
+    }
+    elements.printRoot.innerHTML = renderPrintEntry(entry);
+    host.classList.add("printing");
+    document.body.classList.add("mdpsy-diary-printing");
+    titleBeforePrint = document.title;
+    document.title = formatExportBaseName(entry);
+    showToast("В диалоге печати выбери 'Сохранить как PDF'");
+    window.clearTimeout(printCleanupTimer);
+    window.setTimeout(() => {
+      window.print();
+      printCleanupTimer = window.setTimeout(cleanupPrint, 120000);
+    }, 60);
+  }
+  
+  function cleanupPrint() {
+    window.clearTimeout(printCleanupTimer);
+    host.classList.remove("printing");
+    document.body.classList.remove("mdpsy-diary-printing");
+    elements.printRoot.innerHTML = "";
+    if (titleBeforePrint) {
+      document.title = titleBeforePrint;
+      titleBeforePrint = "";
+    }
+  }
+  
+  function downloadBackup() {
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      entries: getPersistedEntries()
+    };
+    const date = toDateInputValue(new Date());
+    downloadBlob(JSON.stringify(payload, null, 2), `stress-diary-backup-${date}.json`, "application/json;charset=utf-8");
+  }
+  
+  function importBackup(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        const importedEntries = Array.isArray(parsed) ? parsed : parsed.entries;
+        if (!Array.isArray(importedEntries)) throw new Error("No entries");
+        const existingIds = new Set(entries.map((entry) => entry.id));
+        const normalized = importedEntries.map((entry) => ({
+          ...entry,
+          id: existingIds.has(entry.id) ? createId() : entry.id || createId(),
+          fields: entry.fields || {},
+          rationalization: entry.rationalization || {},
+          notes: entry.notes || ""
+        }));
+        const persistedImported = normalized.filter(shouldPersistEntry);
+        entries = [...persistedImported, ...entries].filter(shouldPersistEntry);
+        activeId = persistedImported[0]?.id || entries[0]?.id || "";
+        save();
+        render();
+        showToast("Импорт завершен");
+      } catch {
+        showToast("Не удалось импортировать JSON");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
+  
+  function formatEntryMarkdown(entry) {
+    const lines = [];
+    lines.push(`# ${entry.title || TYPE_META[entry.type].defaultTitle}`);
+    lines.push("");
+    lines.push(`Тип: ${TYPE_META[entry.type].label}`);
+    if (entry.date) lines.push(`Дата ситуации: ${formatDate(entry.date)}`);
+    if (entry.tags) lines.push(`Теги: ${entry.tags}`);
+    lines.push("");
+  
+    const sections = getSectionsForEntry(entry);
+    appendSectionsMarkdown(lines, sections, entry.fields);
+  
+    if (entry.type === "diary") {
+      const decision = entry.fields.realProblemSolved;
+      if (decision) {
+        lines.push("## Переход к рационализации");
+        lines.push("");
+        lines.push(`Действие решало реальную проблему: ${decisionLabel(decision)}`);
+        lines.push("");
+      }
+      if (entry.rationalizationEnabled || decision === "no") {
+        appendSectionsMarkdown(lines, RATIONALIZATION_SECTIONS, entry.rationalization);
+      }
+    }
+    appendNotesMarkdown(lines, entry);
+  
+    return lines.join("\n").trim() + "\n";
+  }
+  
+  function appendSectionsMarkdown(lines, sections, values) {
+    sections.forEach((section) => {
+      lines.push(`## ${section.index}. ${section.title}`);
+      lines.push("");
+      section.fields.forEach((field) => {
+        const value = values[field.key];
+        lines.push(`**${field.label}**`);
+        lines.push("");
+        lines.push(value === undefined || value === "" ? "-" : printValue(value));
+        lines.push("");
+      });
+    });
+  }
+  
+  function appendNotesMarkdown(lines, entry) {
+    if (!hasPrintableValue(entry.notes)) return;
+    lines.push("## Заметки");
+    lines.push("");
+    lines.push("**Впечатления и инсайты после заполнения**");
+    lines.push("");
+    lines.push(String(entry.notes));
+    lines.push("");
+  }
+  
+  function getSectionsForEntry(entry) {
+    if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
+    if (entry.type === "actions") return ACTION_SECTIONS;
+    return DIARY_SECTIONS;
+  }
+  
+  function renderPrintEntry(entry) {
+    const sections = getSectionsForEntry(entry);
+    const body = renderPrintSections(sections, entry.fields);
+    const rationalization = entry.type === "diary" && (entry.rationalizationEnabled || entry.fields.realProblemSolved === "no")
+      ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization)
+      : "";
+    const notes = renderPrintNotes(entry);
+    const decision = entry.type === "diary" && entry.fields.realProblemSolved
+      ? `
+        <section class="print-section print-decision">
+          <div class="print-section-header">
+            <span class="print-step">после пункта 6</span>
+            <h2>Переход к рационализации</h2>
+          </div>
+          <div class="print-field">
+            <div class="print-field-label">Действие решало реальную проблему?</div>
+            <div class="print-field-value">${escapeHTML(decisionLabel(entry.fields.realProblemSolved))}</div>
+          </div>
+        </section>
+      `
+      : "";
+    const tags = String(entry.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean);
+    const emptyNote = `<p class="print-note">Пустые поля скрыты, чтобы экспорт оставался коротким и читабельным.</p>`;
+    return `
+      <article class="print-entry">
+        <header class="print-cover">
+          <div class="print-cover-top">
+            <span class="print-kicker">Стресс-дневник</span>
+            <span class="print-type">${escapeHTML(TYPE_META[entry.type].label)}</span>
+          </div>
+          <h1>${escapeHTML(entry.title || TYPE_META[entry.type].defaultTitle)}</h1>
+          <div class="print-meta">
+            <div class="print-meta-item">
+              <span>Тип</span>
+              <strong>${escapeHTML(TYPE_META[entry.type].label)}</strong>
+            </div>
+            ${entry.date ? `
+              <div class="print-meta-item">
+                <span>Дата ситуации</span>
+                <strong>${escapeHTML(formatDate(entry.date))}</strong>
+              </div>
+            ` : ""}
+            <div class="print-meta-item">
+              <span>Экспорт</span>
+              <strong>${escapeHTML(formatDate(toDateInputValue(new Date())))}</strong>
+            </div>
+          </div>
+          ${tags.length ? `<div class="print-tags">${tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("")}</div>` : ""}
+        </header>
+        ${emptyNote}
+        ${body}
+        ${decision}
+        ${rationalization}
+        ${notes}
+      </article>
+    `;
+  }
+  
+  function renderPrintNotes(entry) {
+    if (!hasPrintableValue(entry.notes)) return "";
+    return `
+      <section class="print-section">
+        <div class="print-section-header">
+          <span class="print-step">после</span>
+          <h2>Заметки</h2>
+        </div>
+        <div class="print-field">
+          <div class="print-field-label">Впечатления и инсайты после заполнения</div>
+          <div class="print-field-value">${escapeHTML(printValue(entry.notes))}</div>
+        </div>
+      </section>
+    `;
+  }
+  
+  function renderPrintSections(sections, values) {
+    return sections.map((section) => {
+      const fields = section.fields
+        .map((field) => ({ field, value: values[field.key] }))
+        .filter(({ value }) => hasPrintableValue(value));
+  
+      if (fields.length === 0) return "";
+  
+      return `
+        <section class="print-section">
+          <div class="print-section-header">
+            <span class="print-step">${escapeHTML(section.index)}</span>
+            <h2>${escapeHTML(section.title)}</h2>
+          </div>
+          <div class="print-fields">
+            ${fields.map(({ field, value }) => `
+              <div class="print-field">
+                <div class="print-field-label">${escapeHTML(field.label)}</div>
+                <div class="print-field-value">${escapeHTML(printValue(value))}</div>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `;
+    }).join("");
+  }
+  
+  function printValue(value) {
+    if (Array.isArray(value)) {
+      return value
+        .filter(hasPrintableValue)
+        .map((item) => {
+          if (item && typeof item === "object" && ("name" in item || "intensity" in item)) {
+            const name = String(item.name || "Чувство без названия").trim();
+            const hasIntensity = item.intensity !== null && item.intensity !== undefined && item.intensity !== "" && Number.isFinite(Number(item.intensity));
+            const intensity = hasIntensity ? ` - ${Number(item.intensity)}%` : "";
+            return `${name}${intensity}`;
+          }
+          return printValue(item);
+        })
+        .join("\n");
+    }
+    if (typeof value === "number") return `${value}%`;
+    if (typeof value === "boolean") return value ? "да" : "нет";
+    return String(value);
+  }
+  
+  function hasPrintableValue(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value === "boolean") return value;
+    if (Array.isArray(value)) return value.some(hasPrintableValue);
+    if (typeof value === "object") return Object.values(value).some(hasPrintableValue);
+    return false;
+  }
+  
+  function decisionLabel(value) {
+    const labels = {
+      yes: "да",
+      no: "нет",
+      unclear: "неясно"
+    };
+    return labels[value] || value;
+  }
+  
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  
+  function downloadBlob(content, fileName, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+  
+  function getActiveEntry() {
+    return entries.find((entry) => entry.id === activeId) || null;
+  }
+  
+  function searchBlob(entry) {
+    return [
+      entry.title,
+      entry.date,
+      entry.tags,
+      TYPE_META[entry.type].label,
+      entry.notes,
+      ...Object.values(entry.fields || {}),
+      ...Object.values(entry.rationalization || {})
+    ].map(searchValue).join(" ").toLowerCase();
+  }
+  
+  function searchValue(value) {
+    if (value === null || value === undefined) return "";
+    if (Array.isArray(value)) return value.map(searchValue).join(" ");
+    if (typeof value === "object") return Object.values(value).map(searchValue).join(" ");
+    return String(value);
+  }
+  
+  function getPersistedEntries() {
+    return entries.filter(shouldPersistEntry);
+  }
+  
+  function shouldPersistEntry(entry) {
+    if (!entry) return false;
+    const defaultTitle = TYPE_META[entry.type]?.defaultTitle || "";
+    const hasCustomTitle = Boolean(String(entry.title || "").trim()) && entry.title !== defaultTitle;
+    return Boolean(
+      hasCustomTitle ||
+      String(entry.tags || "").trim() ||
+      hasMeaningfulValue(entry.notes) ||
+      hasMeaningfulValue(entry.fields) ||
+      hasMeaningfulValue(entry.rationalization) ||
+      entry.rationalizationEnabled
+    );
+  }
+  
+  function hasMeaningfulValue(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value === "boolean") return value;
+    if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+    if (typeof value === "object") return Object.values(value).some(hasMeaningfulValue);
+    return false;
+  }
+  
+  function discardEmptyEntries() {
+    const before = entries.length;
+    entries = entries.filter(shouldPersistEntry);
+    if (!entries.some((entry) => entry.id === activeId)) {
+      activeId = entries[0]?.id || "";
+    }
+    if (entries.length !== before) {
+      save();
+    }
+  }
+  
+  function showToast(message) {
+    elements.toast.textContent = message;
+    elements.toast.classList.add("visible");
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      elements.toast.classList.remove("visible");
+    }, 1800);
+  }
+  
+  function createId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+  
+  function toDateInputValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  
+  function formatDate(value) {
+    if (!value) return "";
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(date);
+  }
+  
+  function formatExportBaseName(entry) {
+    const type = TYPE_META[entry.type]?.label || "Запись";
+    const date = formatFileDate(entry.date);
+    const name = sanitizeFilePart(entry.tags || entry.title || TYPE_META[entry.type]?.defaultTitle || "");
+    return [type, date, name].filter(Boolean).join("_");
+  }
+  
+  function formatFileDate(value) {
+    const date = value ? new Date(`${value}T00:00:00`) : new Date();
+    if (Number.isNaN(date.getTime())) return sanitizeFilePart(value);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}_${month}_${year}`;
+  }
+  
+  function sanitizeFilePart(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[#]+/g, "")
+      .replace(/[\\/:*?"<>|]+/g, " ")
+      .replace(/[;,]+/g, " ")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+  
+  function slugify(value) {
+    const fallback = "stress-diary-entry";
+    const slug = String(value)
+      .toLowerCase()
+      .trim()
+      .replace(/ё/g, "e")
+      .replace(/[^a-zа-я0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+    return slug || fallback;
+  }
+  
+  function escapeHTML(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+  
+  function escapeAttr(value) {
+    return escapeHTML(value);
+  }
+})();
+</script>

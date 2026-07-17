@@ -54,6 +54,48 @@ const { chromium } = require("playwright");
   const savedAfterBlankDiagnostic = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
+
+  await page.locator("#newActionsButton").click();
+  const actionSectionTitles = await page.locator("#formRoot .section-header h2").allTextContents();
+  const actionFeelingRowsBefore = await page.locator(".feeling-row").count();
+  const savedAfterBlankActions = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  if (savedAfterBlankActions !== 1) {
+    throw new Error(`Blank actions entry was saved: ${savedAfterBlankActions}`);
+  }
+  const expectedActionSections = [
+    "Ситуация",
+    "Чувство и образ себя",
+    "Охранительное действие",
+    "Избегающее действие",
+    "Адаптивное поведение",
+    "Заметки"
+  ];
+  if (expectedActionSections.some((title) => !actionSectionTitles.includes(title))) {
+    throw new Error(`Actions sections are incomplete: ${actionSectionTitles.join(", ")}`);
+  }
+
+  await page.locator("button[data-add-feeling]").click();
+  const actionFeelingRowsAfter = await page.locator(".feeling-row").count();
+  await page.locator("input[data-path='fields.feelings.0.name']").fill("Тревога");
+  await page.locator("input[data-path='fields.feelings.0.intensity']").fill("80");
+  await page.locator("input[data-path='fields.feelings.1.name']").fill("Стыд");
+  await page.locator("input[data-path='fields.feelings.1.intensity']").fill("60");
+  await page.locator("textarea[data-path='fields.situation']").fill("Нужно попросить помощи");
+  await page.locator("textarea[data-path='fields.protectiveAction']").fill("Долго наблюдаю за другими");
+  await page.locator("textarea[data-path='fields.avoidantAction']").fill("Откладываю разговор");
+  await page.locator("textarea[data-path='fields.adaptiveBehavior']").fill("Подойти и спросить прямо");
+
+  const actionMarkdown = await page.evaluate(() => formatEntryMarkdown(getActiveEntry()));
+  const actionPrint = await page.evaluate(() => renderPrintEntry(getActiveEntry()));
+  if (!actionMarkdown.includes("Тревога - 80%") || !actionMarkdown.includes("Стыд - 60%")) {
+    throw new Error("Actions feelings were not formatted in Markdown");
+  }
+  if (!actionPrint.includes("Охранительное действие") || !actionPrint.includes("Подойти и спросить прямо")) {
+    throw new Error("Actions entry was not included in PDF output");
+  }
+
   await page.locator(".entry-card").filter({ hasText: "Smoke entry" }).click();
   await page.locator("#tagsInput").fill("работа, тревога");
   const notesText = "Инсайт: я быстрее замечаю тревогу.\nОбсудить на встрече.";
@@ -133,7 +175,11 @@ const { chromium } = require("playwright");
     title,
     savedAfterFill,
     savedAfterBlankDiagnostic,
+    savedAfterBlankActions,
     diagnosticIntensityCount,
+    actionFeelingRowsBefore,
+    actionFeelingRowsAfter,
+    actionExported: actionMarkdown.includes("Адаптивное поведение"),
     rationalizationBefore,
     rationalizationAfter,
     rationalizationScrollShift,

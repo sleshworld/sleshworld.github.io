@@ -13,7 +13,7 @@
       <div class="brand">
         <div>
           <h1>Стресс-дневник</h1>
-          <p>Диагностика, дневник, рационализация</p>
+          <p>Диагностика, дневник, действия</p>
         </div>
         <span class="local-badge">Локально</span>
       </div>
@@ -21,6 +21,7 @@
       <div class="create-grid" aria-label="Создать запись">
         <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
         <button class="button" type="button" id="newDiagnosticButton">Диагностика</button>
+        <button class="button wide" type="button" id="newActionsButton">Охранительные действия</button>
       </div>
 
       <label class="field compact">
@@ -80,10 +81,11 @@
 
       <section class="empty-state hidden" id="emptyState">
         <h2>Пока нет записей</h2>
-        <p>Создай дневник для обычной стрессовой ситуации или диагностику для более глубокого разбора.</p>
+        <p>Создай дневник, диагностику или разбор охранительных и избегающих действий.</p>
         <div class="create-grid narrow">
           <button class="button primary" type="button" id="emptyNewDiaryButton">Дневник</button>
           <button class="button" type="button" id="emptyNewDiagnosticButton">Диагностика</button>
+          <button class="button wide" type="button" id="emptyNewActionsButton">Охранительные действия</button>
         </div>
       </section>
     </main>

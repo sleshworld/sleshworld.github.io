@@ -11,6 +11,10 @@ const TYPE_META = {
   diagnostic: {
     label: "Диагностика",
     defaultTitle: "Новая диагностика"
+  },
+  actions: {
+    label: "Охранительные действия",
+    defaultTitle: "Новые действия"
   }
 };
 
@@ -244,6 +248,75 @@ const DIARY_SECTIONS = [
   }
 ];
 
+const ACTION_SECTIONS = [
+  {
+    title: "Ситуация",
+    index: "1",
+    fields: [
+      {
+        key: "situation",
+        label: "Что происходит или что нужно сделать?",
+        hint: "Опиши конкретный момент или задачу, в которой появляется чувство.",
+        rows: 5
+      }
+    ]
+  },
+  {
+    title: "Чувство и образ себя",
+    index: "2",
+    fields: [
+      {
+        key: "feelings",
+        label: "Какие чувства возникают и насколько они сильные?",
+        hint: "Можно добавить несколько чувств и указать силу каждого в процентах.",
+        kind: "feelings"
+      },
+      {
+        key: "selfDefinition",
+        label: "Каким я себя чувствую или каким боюсь оказаться?",
+        hint: "Например: слабым, глупым, навязчивым, плохим человеком.",
+        rows: 3
+      }
+    ]
+  },
+  {
+    title: "Охранительное действие",
+    index: "3",
+    fields: [
+      {
+        key: "protectiveAction",
+        label: "Что я делаю, чтобы снизить чувство или обезопасить себя?",
+        hint: "Например: беру кого-то с собой, долго готовлюсь, оправдываюсь, наблюдаю за другими.",
+        rows: 5
+      }
+    ]
+  },
+  {
+    title: "Избегающее действие",
+    index: "4",
+    fields: [
+      {
+        key: "avoidantAction",
+        label: "Как я избегаю, откладываю или выхожу из ситуации?",
+        hint: "Например: нахожу другие дела, не открываю сообщение, обращаюсь только к знакомым людям.",
+        rows: 5
+      }
+    ]
+  },
+  {
+    title: "Адаптивное поведение",
+    index: "5",
+    fields: [
+      {
+        key: "adaptiveBehavior",
+        label: "Что бы я сделал без чувства из пункта 2?",
+        hint: "Запиши прямое действие, которое решает задачу или выражает твоё настоящее решение.",
+        rows: 5
+      }
+    ]
+  }
+];
+
 const RATIONALIZATION_SECTIONS = [
   {
     title: "Проверка мысли",
@@ -368,8 +441,10 @@ function bindElements() {
 function bindEvents() {
   document.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+  document.getElementById("newActionsButton").addEventListener("click", () => createEntry("actions"));
   document.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+  document.getElementById("emptyNewActionsButton").addEventListener("click", () => createEntry("actions"));
   document.getElementById("duplicateButton").addEventListener("click", duplicateActive);
   document.getElementById("deleteButton").addEventListener("click", deleteActive);
   document.getElementById("copyButton").addEventListener("click", copyActive);
@@ -445,7 +520,7 @@ function createEntry(type, options = {}) {
     tags: "",
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    fields: {},
+    fields: type === "actions" ? { feelings: [{ name: "", intensity: null }] } : {},
     rationalization: {},
     rationalizationEnabled: false,
     notes: ""
@@ -537,7 +612,12 @@ function renderEditor() {
   elements.titleInput.value = entry.title || TYPE_META[entry.type].defaultTitle;
   elements.entryDateInput.value = entry.date || "";
   elements.tagsInput.value = entry.tags || "";
-  elements.formRoot.innerHTML = entry.type === "diary" ? renderDiary(entry) : renderDiagnostic(entry);
+  const renderers = {
+    diary: renderDiary,
+    diagnostic: renderDiagnostic,
+    actions: renderActions
+  };
+  elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
 }
 
 function renderDiagnostic(entry) {
@@ -567,6 +647,21 @@ function renderDiary(entry) {
   `;
   const diary = DIARY_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
   return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
+}
+
+function renderActions(entry) {
+  const notice = `
+    <div class="notice">
+      <h2>Смотри на реальные действия</h2>
+      <ul>
+        <li>Охранительное действие помогает снизить чувство, оставаясь рядом с ситуацией.</li>
+        <li>Избегающее действие откладывает ситуацию, уводит от неё или не даёт действовать прямо.</li>
+        <li>Адаптивное поведение - то, что ты выбрал бы без чувства из пункта 2.</li>
+      </ul>
+    </div>
+  `;
+  const sections = ACTION_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
+  return notice + sections + renderNotes(entry);
 }
 
 function renderNotes(entry) {
@@ -639,6 +734,10 @@ function renderSection(section, values, rootPath) {
 }
 
 function renderField(field, value = "", path) {
+  if (field.kind === "feelings") {
+    return renderFeelingsField(field, value, path);
+  }
+
   if (field.kind === "range") {
     const numberValue = value === undefined || value === "" || Number.isNaN(Number(value)) ? 50 : Number(value);
     return `
@@ -679,6 +778,44 @@ function renderField(field, value = "", path) {
   `;
 }
 
+function renderFeelingsField(field, value, path) {
+  const feelings = Array.isArray(value) && value.length
+    ? value
+    : [{ name: "", intensity: null }];
+  return `
+    <div class="field">
+      <span>${escapeHTML(field.label)}</span>
+      ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+      <div class="feelings-editor">
+        ${feelings.map((feeling, index) => {
+          const intensity = feeling?.intensity === null || feeling?.intensity === undefined || feeling?.intensity === ""
+            ? 50
+            : Number(feeling.intensity);
+          return `
+            <div class="feeling-row">
+              <label class="field feeling-name">
+                <span>Чувство ${index + 1}</span>
+                <input type="text" value="${escapeAttr(feeling?.name || "")}" data-path="${escapeAttr(`${path}.${index}.name`)}" autocomplete="off" placeholder="например, тревога">
+              </label>
+              <label class="field feeling-intensity">
+                <span>Сила чувства</span>
+                <div class="range-row">
+                  <input type="range" min="0" max="100" step="1" value="${intensity}" data-path="${escapeAttr(`${path}.${index}.intensity`)}">
+                  <output class="range-value">${intensity}%</output>
+                </div>
+              </label>
+              ${feelings.length > 1 ? `
+                <button class="icon-button remove-feeling" type="button" data-remove-feeling-index="${index}" title="Удалить чувство" aria-label="Удалить чувство ${index + 1}">&times;</button>
+              ` : ""}
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <button class="button add-feeling" type="button" data-add-feeling>Добавить чувство</button>
+    </div>
+  `;
+}
+
 function renderRadio(path, value, label, current) {
   const id = `${path}-${value}`.replace(/[^a-z0-9_-]/gi, "-");
   return `
@@ -703,6 +840,7 @@ function handleFormInput(event) {
   const entry = getActiveEntry();
   if (!entry) return;
 
+  ensureFeelingsArray(entry, control.dataset.path);
   setPath(entry, control.dataset.path, getControlValue(control));
   if (control.type === "range") {
     const output = control.parentElement.querySelector("output");
@@ -717,6 +855,7 @@ function handleFormChange(event) {
   const entry = getActiveEntry();
   if (!entry) return;
 
+  ensureFeelingsArray(entry, control.dataset.path);
   setPath(entry, control.dataset.path, getControlValue(control));
   touchAndSave(entry);
 
@@ -726,6 +865,25 @@ function handleFormChange(event) {
 }
 
 function handleFormClick(event) {
+  const addFeeling = event.target.closest("[data-add-feeling]");
+  const removeFeeling = event.target.closest("[data-remove-feeling-index]");
+  if (addFeeling || removeFeeling) {
+    const entry = getActiveEntry();
+    if (!entry) return;
+    ensureFeelingsArray(entry, "fields.feelings.0.name");
+    if (addFeeling) {
+      entry.fields.feelings.push({ name: "", intensity: null });
+    } else {
+      const index = Number(removeFeeling.dataset.removeFeelingIndex);
+      if (Number.isInteger(index) && entry.fields.feelings.length > 1) {
+        entry.fields.feelings.splice(index, 1);
+      }
+    }
+    touchAndSave(entry);
+    renderEditorPreservingViewport();
+    return;
+  }
+
   const chip = event.target.closest("[data-chip-path]");
   if (!chip) return;
   const entry = getActiveEntry();
@@ -733,6 +891,19 @@ function handleFormClick(event) {
   setPath(entry, chip.dataset.chipPath, chip.dataset.chipValue);
   touchAndSave(entry);
   renderEditor();
+}
+
+function ensureFeelingsArray(entry, path) {
+  if (!String(path || "").startsWith("fields.feelings.")) return;
+  if (!entry.fields || typeof entry.fields !== "object") entry.fields = {};
+  if (!Array.isArray(entry.fields.feelings)) {
+    entry.fields.feelings = [{ name: "", intensity: null }];
+  }
+  const match = String(path).match(/^fields\.feelings\.(\d+)\.name$/);
+  const feeling = match ? entry.fields.feelings[Number(match[1])] : null;
+  if (feeling && (feeling.intensity === null || feeling.intensity === undefined || feeling.intensity === "")) {
+    feeling.intensity = 50;
+  }
 }
 
 function renderEditorPreservingViewport() {
@@ -871,7 +1042,7 @@ function formatEntryMarkdown(entry) {
   if (entry.tags) lines.push(`Теги: ${entry.tags}`);
   lines.push("");
 
-  const sections = entry.type === "diary" ? DIARY_SECTIONS : DIAGNOSTIC_SECTIONS;
+  const sections = getSectionsForEntry(entry);
   appendSectionsMarkdown(lines, sections, entry.fields);
 
   if (entry.type === "diary") {
@@ -915,8 +1086,14 @@ function appendNotesMarkdown(lines, entry) {
   lines.push("");
 }
 
+function getSectionsForEntry(entry) {
+  if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
+  if (entry.type === "actions") return ACTION_SECTIONS;
+  return DIARY_SECTIONS;
+}
+
 function renderPrintEntry(entry) {
-  const sections = entry.type === "diary" ? DIARY_SECTIONS : DIAGNOSTIC_SECTIONS;
+  const sections = getSectionsForEntry(entry);
   const body = renderPrintSections(sections, entry.fields);
   const rationalization = entry.type === "diary" && (entry.rationalizationEnabled || entry.fields.realProblemSolved === "no")
     ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization)
@@ -1017,6 +1194,20 @@ function renderPrintSections(sections, values) {
 }
 
 function printValue(value) {
+  if (Array.isArray(value)) {
+    return value
+      .filter(hasPrintableValue)
+      .map((item) => {
+        if (item && typeof item === "object" && ("name" in item || "intensity" in item)) {
+          const name = String(item.name || "Чувство без названия").trim();
+          const hasIntensity = item.intensity !== null && item.intensity !== undefined && item.intensity !== "" && Number.isFinite(Number(item.intensity));
+          const intensity = hasIntensity ? ` - ${Number(item.intensity)}%` : "";
+          return `${name}${intensity}`;
+        }
+        return printValue(item);
+      })
+      .join("\n");
+  }
   if (typeof value === "number") return `${value}%`;
   if (typeof value === "boolean") return value ? "да" : "нет";
   return String(value);
@@ -1081,7 +1272,14 @@ function searchBlob(entry) {
     entry.notes,
     ...Object.values(entry.fields || {}),
     ...Object.values(entry.rationalization || {})
-  ].join(" ").toLowerCase();
+  ].map(searchValue).join(" ").toLowerCase();
+}
+
+function searchValue(value) {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map(searchValue).join(" ");
+  if (typeof value === "object") return Object.values(value).map(searchValue).join(" ");
+  return String(value);
 }
 
 function getPersistedEntries() {
