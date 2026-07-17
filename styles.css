@@ -160,6 +160,12 @@ button {
   color: var(--ink);
 }
 
+.create-grid .button.active {
+  background: var(--accent);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
 .button.ghost {
   background: transparent;
 }
@@ -313,6 +319,13 @@ button:focus {
 .title-input:focus {
   outline: 0;
   border-color: var(--line);
+}
+
+.registry-title {
+  margin: 0;
+  font-size: clamp(25px, 3vw, 38px);
+  font-weight: 800;
+  line-height: 1.08;
 }
 
 .actions {
@@ -538,6 +551,11 @@ input[type="range"] {
   grid-template-columns: 1.05fr 1.1fr 1fr 1fr 1.1fr 42px;
 }
 
+.registry-table-triggers .actions-table-head,
+.registry-table-triggers .action-table-row {
+  grid-template-columns: 1.25fr 170px 1.55fr 42px;
+}
+
 .actions-table-head {
   background: var(--ink);
   color: var(--paper);
@@ -592,6 +610,32 @@ input[type="range"] {
   outline-offset: -3px;
 }
 
+.percent-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 82px;
+  align-items: center;
+  gap: 4px;
+  padding: 11px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.percent-input input {
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 2px;
+  font-size: 20px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.percent-input input:focus {
+  outline-offset: 0;
+}
+
 .action-cell-label {
   display: none;
 }
@@ -637,37 +681,6 @@ input[type="range"] {
 
 .add-action-row {
   margin-top: 12px;
-}
-
-.compact-notes {
-  border: 2px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  margin-bottom: 18px;
-}
-
-.compact-notes summary {
-  display: flex;
-  cursor: pointer;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.compact-notes summary small {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.compact-notes[open] summary {
-  border-bottom: 2px solid var(--line);
-}
-
-.compact-notes > .field {
-  padding: 14px;
 }
 
 .radio-grid {
@@ -803,6 +816,10 @@ input[type="range"] {
     overflow: hidden;
   }
 
+  .registry-table-triggers .action-table-row {
+    grid-template-columns: 1fr;
+  }
+
   .action-table-cell {
     display: grid;
     grid-template-columns: minmax(126px, 0.32fr) 1fr;
@@ -822,6 +839,10 @@ input[type="range"] {
   }
 
   .action-table-cell textarea {
+    min-height: 72px;
+  }
+
+  .percent-input {
     min-height: 72px;
   }
 

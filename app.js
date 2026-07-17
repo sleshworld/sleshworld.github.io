@@ -1,5 +1,8 @@
 const STORAGE_KEY = "stress-diary-app.entries.v1";
 const ACTIVE_KEY = "stress-diary-app.active-id.v1";
+const ACTIONS_STORAGE_KEY = "stress-diary-app.action-rows.v1";
+const TRIGGERS_STORAGE_KEY = "stress-diary-app.trigger-rows.v1";
+const VIEW_STORAGE_KEY = "stress-diary-app.active-view.v1";
 
 const FEELINGS = ["страх", "обида", "вина", "стыд", "тревога", "разочарование", "грусть", "агрессия"];
 
@@ -15,6 +18,19 @@ const TYPE_META = {
   actions: {
     label: "Охранительные действия",
     defaultTitle: "Новые действия"
+  }
+};
+
+const REGISTRY_META = {
+  actions: {
+    label: "Действия",
+    title: "Список действий",
+    fileName: "Список_действий"
+  },
+  triggers: {
+    label: "Триггеры",
+    title: "Список триггеров",
+    fileName: "Список_триггеров"
   }
 };
 
@@ -276,6 +292,25 @@ const ACTION_COLUMNS = [
   }
 ];
 
+const TRIGGER_COLUMNS = [
+  {
+    key: "situation",
+    label: "Ситуация / триггер",
+    placeholder: "Что вызывает чувство или задевает убеждение?"
+  },
+  {
+    key: "difficulty",
+    label: "Сложность для психики",
+    placeholder: "0-100",
+    kind: "percent"
+  },
+  {
+    key: "avoidanceActions",
+    label: "Охранительно-избегающие действия",
+    placeholder: "Как успокаиваюсь, спасаюсь или избегаю?"
+  }
+];
+
 const RATIONALIZATION_SECTIONS = [
   {
     title: "Проверка мысли",
@@ -365,6 +400,9 @@ const RATIONALIZATION_SECTIONS = [
 
 let entries = [];
 let activeId = "";
+let actionRows = [];
+let triggerRows = [];
+let activeView = "entry";
 let toastTimer = 0;
 let listRenderTimer = 0;
 let printCleanupTimer = 0;
@@ -375,7 +413,7 @@ const elements = {};
 document.addEventListener("DOMContentLoaded", () => {
   bindElements();
   load();
-  if (entries.length === 0) {
+  if (entries.length === 0 && activeView === "entry") {
     createEntry("diary", { silent: true });
   }
   render();
@@ -386,9 +424,11 @@ function bindElements() {
   elements.entryList = document.getElementById("entryList");
   elements.searchInput = document.getElementById("searchInput");
   elements.titleInput = document.getElementById("titleInput");
+  elements.registryTitle = document.getElementById("registryTitle");
   elements.entryTypeLabel = document.getElementById("entryTypeLabel");
   elements.entryDateInput = document.getElementById("entryDateInput");
   elements.tagsInput = document.getElementById("tagsInput");
+  elements.entryMetaRow = document.getElementById("entryMetaRow");
   elements.formRoot = document.getElementById("formRoot");
   elements.editorPanel = document.getElementById("editorPanel");
   elements.emptyState = document.getElementById("emptyState");
@@ -400,10 +440,12 @@ function bindElements() {
 function bindEvents() {
   document.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
-  document.getElementById("newActionsButton").addEventListener("click", () => createEntry("actions"));
+  document.getElementById("actionsPageButton").addEventListener("click", () => openRegistry("actions"));
+  document.getElementById("triggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
-  document.getElementById("emptyNewActionsButton").addEventListener("click", () => createEntry("actions"));
+  document.getElementById("emptyActionsPageButton").addEventListener("click", () => openRegistry("actions"));
+  document.getElementById("emptyTriggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("duplicateButton").addEventListener("click", duplicateActive);
   document.getElementById("deleteButton").addEventListener("click", deleteActive);
   document.getElementById("copyButton").addEventListener("click", copyActive);
@@ -451,16 +493,35 @@ function load() {
   } catch {
     entries = [];
   }
-  entries = entries.map(normalizeEntry).filter(shouldPersistEntry);
+  const normalizedEntries = entries.map(normalizeEntry);
+  const legacyActionEntries = normalizedEntries.filter((entry) => entry.type === "actions");
+  const legacyActionRows = legacyActionEntries.flatMap((entry) => entry.fields.actionRows || []);
+  actionRows = mergeRegistryRows(
+    readStoredRows(ACTIONS_STORAGE_KEY),
+    legacyActionRows,
+    ACTION_COLUMNS
+  );
+  triggerRows = normalizeRegistryRows(readStoredRows(TRIGGERS_STORAGE_KEY), TRIGGER_COLUMNS);
+  entries = normalizedEntries
+    .filter((entry) => entry.type !== "actions")
+    .filter(shouldPersistEntry);
+  const storedView = localStorage.getItem(VIEW_STORAGE_KEY);
   activeId = localStorage.getItem(ACTIVE_KEY) || "";
+  activeView = storedView && REGISTRY_META[storedView]
+    ? storedView
+    : (legacyActionEntries.some((entry) => entry.id === activeId) ? "actions" : "entry");
   if (!entries.some((entry) => entry.id === activeId)) {
     activeId = entries[0]?.id || "";
   }
+  if (legacyActionEntries.length) save();
 }
 
 function save() {
   const persistedEntries = getPersistedEntries();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedEntries));
+  localStorage.setItem(ACTIONS_STORAGE_KEY, JSON.stringify(getPersistedRegistryRows(actionRows)));
+  localStorage.setItem(TRIGGERS_STORAGE_KEY, JSON.stringify(getPersistedRegistryRows(triggerRows)));
+  localStorage.setItem(VIEW_STORAGE_KEY, activeView);
   if (persistedEntries.some((entry) => entry.id === activeId)) {
     localStorage.setItem(ACTIVE_KEY, activeId);
   } else {
@@ -469,7 +530,10 @@ function save() {
 }
 
 function createEntry(type, options = {}) {
+  if (type !== "diary" && type !== "diagnostic") return;
   discardEmptyEntries();
+  discardEmptyRegistryRows();
+  activeView = "entry";
   const now = new Date();
   const entry = {
     id: createId(),
@@ -479,7 +543,7 @@ function createEntry(type, options = {}) {
     tags: "",
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    fields: type === "actions" ? { actionRows: [createEmptyActionRow()] } : {},
+    fields: {},
     rationalization: {},
     rationalizationEnabled: false,
     notes: ""
@@ -493,11 +557,51 @@ function createEntry(type, options = {}) {
   }
 }
 
+function openRegistry(view) {
+  if (!REGISTRY_META[view]) return;
+  discardEmptyEntries();
+  discardEmptyRegistryRows();
+  activeView = view;
+  save();
+  render();
+}
+
 function createEmptyActionRow() {
-  return ACTION_COLUMNS.reduce((row, column) => {
+  return createEmptyRegistryRow(ACTION_COLUMNS);
+}
+
+function createEmptyRegistryRow(columns) {
+  return columns.reduce((row, column) => {
     row[column.key] = "";
     return row;
   }, {});
+}
+
+function readStoredRows(key) {
+  try {
+    const rows = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeRegistryRows(rows, columns) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => columns.reduce((normalized, column) => {
+    normalized[column.key] = row?.[column.key] ?? "";
+    return normalized;
+  }, {})).filter(hasPrintableValue);
+}
+
+function mergeRegistryRows(storedRows, importedRows, columns) {
+  const seen = new Set();
+  return normalizeRegistryRows([...storedRows, ...importedRows], columns).filter((row) => {
+    const fingerprint = JSON.stringify(row);
+    if (seen.has(fingerprint)) return false;
+    seen.add(fingerprint);
+    return true;
+  });
 }
 
 function normalizeEntry(entry) {
@@ -528,6 +632,7 @@ function normalizeEntry(entry) {
 }
 
 function duplicateActive() {
+  if (activeView !== "entry") return;
   const entry = getActiveEntry();
   if (!entry) return;
   if (!shouldPersistEntry(entry)) {
@@ -548,6 +653,7 @@ function duplicateActive() {
 }
 
 function deleteActive() {
+  if (activeView !== "entry") return;
   const entry = getActiveEntry();
   if (!entry) return;
   const confirmed = window.confirm("Удалить эту запись? Отменить удаление не получится.");
@@ -560,8 +666,18 @@ function deleteActive() {
 }
 
 function render() {
+  renderNavigation();
   renderList();
   renderEditor();
+}
+
+function renderNavigation() {
+  ["actions", "triggers"].forEach((view) => {
+    const button = document.getElementById(`${view}PageButton`);
+    const isActive = activeView === view;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
 }
 
 function renderList() {
@@ -583,7 +699,7 @@ function renderEntryCard(entry) {
     formatDate(entry.date),
     entry.tags ? entry.tags : ""
   ].filter(Boolean).join(" · ");
-  const activeClass = entry.id === activeId ? " active" : "";
+  const activeClass = activeView === "entry" && entry.id === activeId ? " active" : "";
   return `
     <button class="entry-card${activeClass}" type="button" data-entry-id="${escapeAttr(entry.id)}">
       <span class="entry-title">${escapeHTML(title)}</span>
@@ -594,21 +710,41 @@ function renderEntryCard(entry) {
 
 function renderEditor() {
   const entry = getActiveEntry();
-  const hasEntry = Boolean(entry);
-  elements.editorPanel.classList.toggle("hidden", !hasEntry);
-  elements.emptyState.classList.toggle("hidden", hasEntry);
-  document.querySelector(".topbar").classList.toggle("hidden", !hasEntry);
+  const isRegistry = Boolean(REGISTRY_META[activeView]);
+  const hasContent = isRegistry || Boolean(entry);
+  elements.editorPanel.classList.toggle("hidden", !hasContent);
+  elements.emptyState.classList.toggle("hidden", hasContent);
+  document.querySelector(".topbar").classList.toggle("hidden", !hasContent);
+
+  if (isRegistry) {
+    const meta = REGISTRY_META[activeView];
+    elements.entryTypeLabel.textContent = "Постоянный список";
+    elements.titleInput.classList.add("hidden");
+    elements.registryTitle.classList.remove("hidden");
+    elements.registryTitle.textContent = meta.title;
+    elements.entryMetaRow.classList.add("hidden");
+    document.getElementById("duplicateButton").classList.add("hidden");
+    document.getElementById("deleteButton").classList.add("hidden");
+    elements.formRoot.innerHTML = activeView === "actions"
+      ? renderActionsRegistry()
+      : renderTriggersRegistry();
+    return;
+  }
 
   if (!entry) return;
 
   elements.entryTypeLabel.textContent = TYPE_META[entry.type].label;
+  elements.titleInput.classList.remove("hidden");
+  elements.registryTitle.classList.add("hidden");
+  elements.entryMetaRow.classList.remove("hidden");
+  document.getElementById("duplicateButton").classList.remove("hidden");
+  document.getElementById("deleteButton").classList.remove("hidden");
   elements.titleInput.value = entry.title || TYPE_META[entry.type].defaultTitle;
   elements.entryDateInput.value = entry.date || "";
   elements.tagsInput.value = entry.tags || "";
   const renderers = {
     diary: renderDiary,
-    diagnostic: renderDiagnostic,
-    actions: renderActions
+    diagnostic: renderDiagnostic
   };
   elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
 }
@@ -642,42 +778,68 @@ function renderDiary(entry) {
   return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
 }
 
-function renderActions(entry) {
-  const rows = getActionRows(entry);
+function renderActionsRegistry() {
+  return renderRegistryTable({
+    view: "actions",
+    heading: "Быстрый разбор действий",
+    hint: "Одна ситуация - одна строка. Список дополняется, а не создаётся заново.",
+    columns: ACTION_COLUMNS,
+    rows: actionRows
+  });
+}
+
+function renderTriggersRegistry() {
+  return renderRegistryTable({
+    view: "triggers",
+    heading: "Иерархия триггеров",
+    hint: "Добавляй даже небольшие триггеры и оценивай силу реакции от 0 до 100%.",
+    columns: TRIGGER_COLUMNS,
+    rows: triggerRows
+  });
+}
+
+function renderRegistryTable({ view, heading, hint, columns, rows }) {
+  const visibleRows = rows.length ? rows : [createEmptyRegistryRow(columns)];
   return `
     <section class="actions-sheet">
       <div class="actions-sheet-heading">
         <div>
-          <h2>Быстрый разбор действий</h2>
-          <p class="hint">Одна ситуация - одна строка. Можно заполнять короткими фразами.</p>
+          <h2>${escapeHTML(heading)}</h2>
+          <p class="hint">${escapeHTML(hint)}</p>
         </div>
         <span class="action-row-count">Строк: ${rows.length}</span>
       </div>
-      <div class="actions-table" role="table" aria-label="Охранительные и избегающие действия">
+      <div class="actions-table registry-table registry-table-${escapeAttr(view)}" role="table" aria-label="${escapeAttr(REGISTRY_META[view].title)}">
         <div class="actions-table-head" role="row">
-          ${ACTION_COLUMNS.map((column) => `<div role="columnheader">${escapeHTML(column.label)}</div>`).join("")}
+          ${columns.map((column) => `<div role="columnheader">${escapeHTML(column.label)}</div>`).join("")}
           <span aria-hidden="true"></span>
         </div>
         <div class="actions-table-body">
-          ${rows.map((row, index) => renderActionRow(row, index, rows.length)).join("")}
+          ${visibleRows.map((row, index) => renderRegistryRow(view, columns, row, index)).join("")}
         </div>
       </div>
-      <button class="button add-action-row" type="button" data-add-action-row>Добавить строку</button>
+      <button class="button add-action-row" type="button" data-add-registry-row="${escapeAttr(view)}">Добавить строку</button>
     </section>
-    ${renderCompactNotes(entry)}
   `;
 }
 
-function renderActionRow(row, index, rowCount) {
+function renderRegistryRow(view, columns, row, index) {
   return `
     <div class="action-table-row" role="row">
-      ${ACTION_COLUMNS.map((column) => `
+      ${columns.map((column) => `
         <label class="action-table-cell" role="cell">
           <span class="action-cell-label">${escapeHTML(column.label)}</span>
-          <textarea rows="2" data-path="fields.actionRows.${index}.${escapeAttr(column.key)}" placeholder="${escapeAttr(column.placeholder)}">${escapeHTML(row?.[column.key] || "")}</textarea>
+          ${column.kind === "percent" ? `
+            <span class="percent-input">
+              <input type="number" min="0" max="100" inputmode="numeric" data-registry="${escapeAttr(view)}" data-row-index="${index}" data-key="${escapeAttr(column.key)}" value="${escapeAttr(row?.[column.key] ?? "")}" placeholder="${escapeAttr(column.placeholder)}" aria-label="${escapeAttr(column.label)}">
+              <span aria-hidden="true">%</span>
+            </span>
+          ` : `
+            <textarea rows="2" data-registry="${escapeAttr(view)}" data-row-index="${index}" data-key="${escapeAttr(column.key)}" placeholder="${escapeAttr(column.placeholder)}">${escapeHTML(row?.[column.key] || "")}</textarea>
+          `}
         </label>
       `).join("")}
-      <button class="icon-button remove-action-row" type="button" data-remove-action-row="${index}" title="Удалить строку" aria-label="Удалить строку ${index + 1}" ${rowCount === 1 ? "disabled" : ""}>&times;</button>
+      <button class="icon-button remove-action-row" type="button" data-remove-registry-row="${index}" data-registry="${escapeAttr(view)}" title="Удалить строку" aria-label="Удалить строку ${index + 1}">&times;</button>
     </div>
   `;
 }
@@ -685,21 +847,6 @@ function renderActionRow(row, index, rowCount) {
 function getActionRows(entry) {
   const rows = entry?.fields?.actionRows;
   return Array.isArray(rows) && rows.length ? rows : [createEmptyActionRow()];
-}
-
-function renderCompactNotes(entry) {
-  return `
-    <details class="compact-notes" ${hasPrintableValue(entry.notes) ? "open" : ""}>
-      <summary>
-        <span>Заметки</span>
-        <small>необязательно</small>
-      </summary>
-      <label class="field">
-        <span>Впечатления и инсайты</span>
-        <textarea rows="4" data-path="notes" placeholder="Что хочется запомнить или обсудить с психологом?">${escapeHTML(entry.notes || "")}</textarea>
-      </label>
-    </details>
-  `;
 }
 
 function renderNotes(entry) {
@@ -825,12 +972,19 @@ function renderRadio(path, value, label, current) {
 function handleEntryListClick(event) {
   const card = event.target.closest("[data-entry-id]");
   if (!card) return;
+  discardEmptyRegistryRows();
+  activeView = "entry";
   activeId = card.dataset.entryId;
   save();
   render();
 }
 
 function handleFormInput(event) {
+  const registryControl = event.target.closest("[data-registry][data-row-index][data-key]");
+  if (registryControl) {
+    updateRegistryControl(registryControl, false);
+    return;
+  }
   const control = event.target.closest("[data-path]");
   if (!control) return;
   const entry = getActiveEntry();
@@ -846,6 +1000,11 @@ function handleFormInput(event) {
 }
 
 function handleFormChange(event) {
+  const registryControl = event.target.closest("[data-registry][data-row-index][data-key]");
+  if (registryControl) {
+    updateRegistryControl(registryControl, true);
+    return;
+  }
   const control = event.target.closest("[data-path]");
   if (!control) return;
   const entry = getActiveEntry();
@@ -861,21 +1020,22 @@ function handleFormChange(event) {
 }
 
 function handleFormClick(event) {
-  const addActionRow = event.target.closest("[data-add-action-row]");
-  const removeActionRow = event.target.closest("[data-remove-action-row]");
-  if (addActionRow || removeActionRow) {
-    const entry = getActiveEntry();
-    if (!entry) return;
-    ensureActionRows(entry, "fields.actionRows.0.situation");
-    if (addActionRow) {
-      entry.fields.actionRows.push(createEmptyActionRow());
+  const addRegistryRow = event.target.closest("[data-add-registry-row]");
+  const removeRegistryRow = event.target.closest("[data-remove-registry-row]");
+  if (addRegistryRow || removeRegistryRow) {
+    const view = addRegistryRow?.dataset.addRegistryRow || removeRegistryRow?.dataset.registry;
+    const rows = getRegistryRows(view);
+    const columns = getRegistryColumns(view);
+    if (!rows || !columns) return;
+    if (addRegistryRow) {
+      rows.push(createEmptyRegistryRow(columns));
     } else {
-      const index = Number(removeActionRow.dataset.removeActionRow);
-      if (Number.isInteger(index) && entry.fields.actionRows.length > 1) {
-        entry.fields.actionRows.splice(index, 1);
+      const index = Number(removeRegistryRow.dataset.removeRegistryRow);
+      if (Number.isInteger(index) && index >= 0 && index < rows.length) {
+        rows.splice(index, 1);
       }
     }
-    touchAndSave(entry);
+    save();
     renderEditorPreservingViewport();
     return;
   }
@@ -887,6 +1047,37 @@ function handleFormClick(event) {
   setPath(entry, chip.dataset.chipPath, chip.dataset.chipValue);
   touchAndSave(entry);
   renderEditor();
+}
+
+function updateRegistryControl(control, clampPercent) {
+  const view = control.dataset.registry;
+  const rows = getRegistryRows(view);
+  const columns = getRegistryColumns(view);
+  const index = Number(control.dataset.rowIndex);
+  const key = control.dataset.key;
+  if (!rows || !columns || !Number.isInteger(index) || !columns.some((column) => column.key === key)) return;
+  while (rows.length <= index) rows.push(createEmptyRegistryRow(columns));
+  let value = control.value;
+  if (clampPercent && columns.find((column) => column.key === key)?.kind === "percent" && value !== "") {
+    value = Math.max(0, Math.min(100, Number(value) || 0));
+    control.value = String(value);
+  }
+  rows[index][key] = value;
+  save();
+  const count = elements.formRoot.querySelector(".action-row-count");
+  if (count) count.textContent = `Строк: ${rows.length}`;
+}
+
+function getRegistryRows(view) {
+  if (view === "actions") return actionRows;
+  if (view === "triggers") return triggerRows;
+  return null;
+}
+
+function getRegistryColumns(view) {
+  if (view === "actions") return ACTION_COLUMNS;
+  if (view === "triggers") return TRIGGER_COLUMNS;
+  return null;
 }
 
 function ensureActionRows(entry, path) {
@@ -943,6 +1134,16 @@ function scheduleListRender() {
 }
 
 function copyActive() {
+  if (REGISTRY_META[activeView]) {
+    if (!getPersistedRegistryRows(getRegistryRows(activeView)).length) {
+      showToast("Список пока пуст");
+      return;
+    }
+    copyText(formatRegistryMarkdown(activeView))
+      .then(() => showToast("Список скопирован"))
+      .catch(() => showToast("Не удалось скопировать"));
+    return;
+  }
   const entry = getActiveEntry();
   if (!entry) return;
   const text = formatEntryMarkdown(entry);
@@ -952,6 +1153,18 @@ function copyActive() {
 }
 
 function downloadActiveMarkdown() {
+  if (REGISTRY_META[activeView]) {
+    if (!getPersistedRegistryRows(getRegistryRows(activeView)).length) {
+      showToast("Список пока пуст");
+      return;
+    }
+    downloadBlob(
+      formatRegistryMarkdown(activeView),
+      `${formatRegistryExportBaseName(activeView)}.md`,
+      "text/markdown;charset=utf-8"
+    );
+    return;
+  }
   const entry = getActiveEntry();
   if (!entry) return;
   const fileName = `${formatExportBaseName(entry)}.md`;
@@ -959,6 +1172,15 @@ function downloadActiveMarkdown() {
 }
 
 function printActive() {
+  if (REGISTRY_META[activeView]) {
+    if (!getPersistedRegistryRows(getRegistryRows(activeView)).length) {
+      showToast("Сначала добавь хотя бы одну строку");
+      return;
+    }
+    elements.printRoot.innerHTML = renderPrintRegistry(activeView);
+    startPrint(formatRegistryExportBaseName(activeView));
+    return;
+  }
   const entry = getActiveEntry();
   if (!entry) return;
   if (!shouldPersistEntry(entry)) {
@@ -966,9 +1188,13 @@ function printActive() {
     return;
   }
   elements.printRoot.innerHTML = renderPrintEntry(entry);
+  startPrint(formatExportBaseName(entry));
+}
+
+function startPrint(title) {
   document.body.classList.add("printing");
   titleBeforePrint = document.title;
-  document.title = formatExportBaseName(entry);
+  document.title = title;
   showToast("В диалоге печати выбери 'Сохранить как PDF'");
   window.clearTimeout(printCleanupTimer);
   window.setTimeout(() => {
@@ -989,9 +1215,11 @@ function cleanupPrint() {
 
 function downloadBackup() {
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
-    entries: getPersistedEntries()
+    entries: getPersistedEntries(),
+    actionRows: getPersistedRegistryRows(actionRows),
+    triggerRows: getPersistedRegistryRows(triggerRows)
   };
   const date = toDateInputValue(new Date());
   downloadBlob(JSON.stringify(payload, null, 2), `stress-diary-backup-${date}.json`, "application/json;charset=utf-8");
@@ -1004,8 +1232,13 @@ function importBackup(event) {
   reader.onload = () => {
     try {
       const parsed = JSON.parse(String(reader.result || ""));
-      const importedEntries = Array.isArray(parsed) ? parsed : parsed.entries;
-      if (!Array.isArray(importedEntries)) throw new Error("No entries");
+      const importedEntries = Array.isArray(parsed) ? parsed : (parsed.entries || []);
+      const importedActionRows = Array.isArray(parsed?.actionRows) ? parsed.actionRows : [];
+      const importedTriggerRows = Array.isArray(parsed?.triggerRows) ? parsed.triggerRows : [];
+      if (!Array.isArray(importedEntries)) throw new Error("Invalid entries");
+      if (!importedEntries.length && !importedActionRows.length && !importedTriggerRows.length) {
+        throw new Error("No data");
+      }
       const existingIds = new Set(entries.map((entry) => entry.id));
       const normalized = importedEntries.map((entry) => normalizeEntry({
         ...entry,
@@ -1014,8 +1247,15 @@ function importBackup(event) {
         rationalization: entry.rationalization || {},
         notes: entry.notes || ""
       }));
-      const persistedImported = normalized.filter(shouldPersistEntry);
+      const legacyActionRows = normalized
+        .filter((entry) => entry.type === "actions")
+        .flatMap((entry) => entry.fields.actionRows || []);
+      const persistedImported = normalized
+        .filter((entry) => entry.type !== "actions")
+        .filter(shouldPersistEntry);
       entries = [...persistedImported, ...entries].filter(shouldPersistEntry);
+      actionRows = mergeRegistryRows(actionRows, [...importedActionRows, ...legacyActionRows], ACTION_COLUMNS);
+      triggerRows = mergeRegistryRows(triggerRows, importedTriggerRows, TRIGGER_COLUMNS);
       activeId = persistedImported[0]?.id || entries[0]?.id || "";
       save();
       render();
@@ -1061,6 +1301,35 @@ function formatEntryMarkdown(entry) {
   return lines.join("\n").trim() + "\n";
 }
 
+function formatRegistryMarkdown(view) {
+  const meta = REGISTRY_META[view];
+  const columns = getRegistryColumns(view);
+  const rows = getPersistedRegistryRows(getRegistryRows(view));
+  const lines = [
+    `# ${meta.title}`,
+    "",
+    `Дата экспорта: ${formatDate(toDateInputValue(new Date()))}`,
+    ""
+  ];
+  rows.forEach((row, index) => {
+    lines.push(`## Строка ${index + 1}`);
+    lines.push("");
+    columns.forEach((column) => {
+      lines.push(`**${column.label}**`);
+      lines.push("");
+      lines.push(formatRegistryValue(column, row[column.key]));
+      lines.push("");
+    });
+  });
+  return lines.join("\n").trim() + "\n";
+}
+
+function formatRegistryValue(column, value) {
+  if (!hasPrintableValue(value)) return "-";
+  if (column.kind === "percent") return `${value}%`;
+  return String(value);
+}
+
 function appendSectionsMarkdown(lines, sections, values) {
   sections.forEach((section) => {
     lines.push(`## ${section.index}. ${section.title}`);
@@ -1101,6 +1370,39 @@ function appendActionRowsMarkdown(lines, rows) {
 function getSectionsForEntry(entry) {
   if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
   return DIARY_SECTIONS;
+}
+
+function renderPrintRegistry(view) {
+  const meta = REGISTRY_META[view];
+  const rows = getPersistedRegistryRows(getRegistryRows(view));
+  const columns = getRegistryColumns(view);
+  return `
+    <article class="print-entry">
+      <header class="print-cover">
+        <div class="print-cover-top">
+          <span class="print-kicker">Стресс-дневник</span>
+          <span class="print-type">${escapeHTML(meta.label)}</span>
+        </div>
+        <h1>${escapeHTML(meta.title)}</h1>
+        <div class="print-meta">
+          <div class="print-meta-item">
+            <span>Тип</span>
+            <strong>Постоянный список</strong>
+          </div>
+          <div class="print-meta-item">
+            <span>Строк</span>
+            <strong>${rows.length}</strong>
+          </div>
+          <div class="print-meta-item">
+            <span>Экспорт</span>
+            <strong>${escapeHTML(formatDate(toDateInputValue(new Date())))}</strong>
+          </div>
+        </div>
+      </header>
+      <p class="print-note">Пустые поля скрыты, чтобы экспорт оставался коротким и читабельным.</p>
+      ${renderPrintRegistryRows(rows, columns, view === "triggers" ? "Триггер" : "Строка действий")}
+    </article>
+  `;
 }
 
 function renderPrintEntry(entry) {
@@ -1206,21 +1508,25 @@ function renderPrintSections(sections, values) {
 }
 
 function renderPrintActionRows(rows) {
+  return renderPrintRegistryRows(rows, ACTION_COLUMNS, "Строка действий");
+}
+
+function renderPrintRegistryRows(rows, columns, heading) {
   return rows.filter(hasPrintableValue).map((row, index) => {
-    const fields = ACTION_COLUMNS
+    const fields = columns
       .map((column) => ({ column, value: row[column.key] }))
       .filter(({ value }) => hasPrintableValue(value));
     return `
       <section class="print-section">
         <div class="print-section-header">
           <span class="print-step">${index + 1}</span>
-          <h2>Строка действий</h2>
+          <h2>${escapeHTML(heading)}</h2>
         </div>
         <div class="print-fields">
           ${fields.map(({ column, value }) => `
             <div class="print-field">
               <div class="print-field-label">${escapeHTML(column.label)}</div>
-              <div class="print-field-value">${escapeHTML(String(value))}</div>
+              <div class="print-field-value">${escapeHTML(formatRegistryValue(column, value))}</div>
             </div>
           `).join("")}
         </div>
@@ -1319,7 +1625,13 @@ function searchValue(value) {
 }
 
 function getPersistedEntries() {
-  return entries.filter(shouldPersistEntry);
+  return entries
+    .filter((entry) => entry.type === "diary" || entry.type === "diagnostic")
+    .filter(shouldPersistEntry);
+}
+
+function getPersistedRegistryRows(rows) {
+  return Array.isArray(rows) ? rows.filter(hasMeaningfulValue) : [];
 }
 
 function shouldPersistEntry(entry) {
@@ -1355,6 +1667,11 @@ function discardEmptyEntries() {
   if (entries.length !== before) {
     save();
   }
+}
+
+function discardEmptyRegistryRows() {
+  actionRows = getPersistedRegistryRows(actionRows);
+  triggerRows = getPersistedRegistryRows(triggerRows);
 }
 
 function showToast(message) {
@@ -1394,6 +1711,11 @@ function formatExportBaseName(entry) {
   const date = formatFileDate(entry.date);
   const name = sanitizeFilePart(entry.tags || entry.title || TYPE_META[entry.type]?.defaultTitle || "");
   return [type, date, name].filter(Boolean).join("_");
+}
+
+function formatRegistryExportBaseName(view) {
+  const meta = REGISTRY_META[view];
+  return `${meta.fileName}_${formatFileDate(toDateInputValue(new Date()))}`;
 }
 
 function formatFileDate(value) {

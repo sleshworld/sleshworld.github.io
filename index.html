@@ -13,15 +13,16 @@
       <div class="brand">
         <div>
           <h1>Стресс-дневник</h1>
-          <p>Диагностика, дневник, действия</p>
+          <p>Диагностика, дневник, действия, триггеры</p>
         </div>
         <span class="local-badge">Локально</span>
       </div>
 
-      <div class="create-grid" aria-label="Создать запись">
+      <div class="create-grid" aria-label="Разделы и новые записи">
         <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
         <button class="button" type="button" id="newDiagnosticButton">Диагностика</button>
-        <button class="button wide" type="button" id="newActionsButton">Охранительные действия</button>
+        <button class="button" type="button" id="actionsPageButton" aria-pressed="false">Действия</button>
+        <button class="button" type="button" id="triggersPageButton" aria-pressed="false">Триггеры</button>
       </div>
 
       <label class="field compact">
@@ -43,8 +44,9 @@
         <div>
           <p class="eyebrow" id="entryTypeLabel">Запись</p>
           <input class="title-input" id="titleInput" type="text" autocomplete="off" aria-label="Название записи">
+          <h1 class="registry-title hidden" id="registryTitle"></h1>
         </div>
-        <div class="actions" aria-label="Действия с записью">
+        <div class="actions" aria-label="Действия с текущей страницей">
           <button class="button" type="button" id="duplicateButton">Дублировать</button>
           <button class="button" type="button" id="copyButton">Скопировать</button>
           <button class="button" type="button" id="downloadMarkdownButton">Markdown</button>
@@ -54,7 +56,7 @@
       </header>
 
       <section class="editor-panel" id="editorPanel">
-        <div class="meta-row">
+        <div class="meta-row" id="entryMetaRow">
           <label class="field">
             <span>Дата ситуации</span>
             <input type="date" id="entryDateInput">
@@ -67,7 +69,7 @@
 
         <aside class="storage-note" aria-label="Как хранятся записи">
           <div>
-            <p class="storage-note-title">Записи хранятся только в этом браузере</p>
+            <p class="storage-note-title">Записи и списки хранятся только в этом браузере</p>
             <p>
               Они не отправляются на сервер и не появятся сами на другом устройстве.
               Если при чистке истории или кэша удалить данные сайта, записи могут стереться.
@@ -81,11 +83,12 @@
 
       <section class="empty-state hidden" id="emptyState">
         <h2>Пока нет записей</h2>
-        <p>Создай дневник, диагностику или разбор охранительных и избегающих действий.</p>
+        <p>Создай дневник или диагностику либо открой постоянный список.</p>
         <div class="create-grid narrow">
           <button class="button primary" type="button" id="emptyNewDiaryButton">Дневник</button>
           <button class="button" type="button" id="emptyNewDiagnosticButton">Диагностика</button>
-          <button class="button wide" type="button" id="emptyNewActionsButton">Охранительные действия</button>
+          <button class="button" type="button" id="emptyActionsPageButton">Действия</button>
+          <button class="button" type="button" id="emptyTriggersPageButton">Триггеры</button>
         </div>
       </section>
     </main>
