@@ -671,6 +671,8 @@ function bindElements() {
   elements.toast = document.getElementById("toast");
   elements.printRoot = document.getElementById("printRoot");
   elements.importFileInput = document.getElementById("importFileInput");
+  elements.deleteDialog = document.getElementById("deleteDialog");
+  elements.deleteDialogRecord = document.getElementById("deleteDialogRecord");
 }
 
 function bindEvents() {
@@ -693,6 +695,10 @@ function bindEvents() {
   document.getElementById("backupButton").addEventListener("click", downloadBackup);
   document.getElementById("importButton").addEventListener("click", () => elements.importFileInput.click());
   elements.importFileInput.addEventListener("change", importBackup);
+  elements.deleteDialog.addEventListener("close", handleDeleteDialogClose);
+  elements.deleteDialog.addEventListener("click", (event) => {
+    if (event.target === elements.deleteDialog) elements.deleteDialog.close("cancel");
+  });
 
   elements.searchInput.addEventListener("input", renderList);
   elements.entryList.addEventListener("click", handleEntryListClick);
@@ -976,9 +982,18 @@ function deleteActive() {
   if (activeView !== "entry") return;
   const entry = getActiveEntry();
   if (!entry) return;
-  const confirmed = window.confirm("Удалить эту запись? Отменить удаление не получится.");
-  if (!confirmed) return;
-  entries = entries.filter((item) => item.id !== entry.id);
+  elements.deleteDialogRecord.textContent = entry.title || TYPE_META[entry.type].defaultTitle;
+  elements.deleteDialog.dataset.entryId = entry.id;
+  elements.deleteDialog.returnValue = "";
+  elements.deleteDialog.showModal();
+}
+
+function handleDeleteDialogClose() {
+  const entryId = elements.deleteDialog.dataset.entryId || "";
+  delete elements.deleteDialog.dataset.entryId;
+  if (elements.deleteDialog.returnValue !== "confirm" || !entryId) return;
+  if (!entries.some((entry) => entry.id === entryId)) return;
+  entries = entries.filter((entry) => entry.id !== entryId);
   activeId = entries[0]?.id || "";
   save();
   render();

@@ -25,6 +25,9 @@ const { chromium } = require("playwright");
   if (await page.locator("#newReportButton").count()) {
     throw new Error("Standalone report button is still visible");
   }
+  if (await page.locator(".brand-mark").count()) {
+    throw new Error("Foreign brand mark is still visible");
+  }
 
   const blankSaved = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
@@ -50,6 +53,36 @@ const { chromium } = require("playwright");
   const savedAfterFill = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
+  await page.locator("#duplicateButton").click();
+  await page.locator("#deleteButton").click();
+  const deleteDialogOpen = await page.locator("#deleteDialog").evaluate((dialog) => dialog.open);
+  const deleteDialogRecord = await page.locator("#deleteDialogRecord").textContent();
+  if (!deleteDialogOpen || deleteDialogRecord !== "Smoke entry - копия") {
+    throw new Error(`Delete dialog is incomplete: open=${deleteDialogOpen}, record=${deleteDialogRecord}`);
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "delete-dialog-desktop.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "delete-dialog-mobile.png") });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  await page.locator("#cancelDeleteButton").click();
+  const savedAfterDeleteCancel = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  if (savedAfterDeleteCancel !== 2) throw new Error("Canceling delete removed the entry");
+  await page.locator("#deleteButton").click();
+  await page.locator("#confirmDeleteButton").click();
+  await page.waitForFunction(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length === 1;
+  });
+  const savedAfterDeleteConfirm = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  if (savedAfterDeleteConfirm !== 1 || await page.locator("#titleInput").inputValue() !== "Smoke entry") {
+    throw new Error("Confirming delete did not remove only the selected entry");
+  }
   await page.locator("#newDiagnosticButton").click();
   const diagnosticIntensityCount = await page.locator("input[type='range'][data-path='fields.feelingIntensity']").count();
   if (diagnosticIntensityCount !== 1) {
@@ -629,6 +662,9 @@ const { chromium } = require("playwright");
     blankSaved,
     title,
     savedAfterFill,
+    deleteDialogOpen,
+    savedAfterDeleteCancel,
+    savedAfterDeleteConfirm,
     savedAfterBlankDiagnostic,
     savedAfterBlankScenario,
     savedAfterBlankScenarioToggle,

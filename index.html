@@ -12,7 +12,6 @@
     <aside class="sidebar" aria-label="Записи">
       <div class="brand">
         <div class="brand-lockup">
-          <span class="brand-mark" aria-hidden="true"><b>md</b><b>psy</b></span>
           <div>
             <p class="brand-kicker">Практика</p>
             <h1>Стресс-дневник</h1>
@@ -99,6 +98,19 @@
       </section>
     </main>
   </div>
+
+  <dialog class="confirm-dialog" id="deleteDialog" aria-labelledby="deleteDialogTitle" aria-describedby="deleteDialogDescription">
+    <form class="confirm-dialog-panel" method="dialog">
+      <p class="confirm-dialog-kicker">Удаление</p>
+      <h2 id="deleteDialogTitle">Удалить запись?</h2>
+      <p id="deleteDialogDescription">Запись исчезнет из этого браузера. Восстановить её после удаления не получится.</p>
+      <p class="confirm-dialog-record" id="deleteDialogRecord"></p>
+      <div class="confirm-dialog-actions">
+        <button class="button" type="submit" value="cancel" id="cancelDeleteButton" autofocus>Оставить</button>
+        <button class="button danger confirm-delete-button" type="submit" value="confirm" id="confirmDeleteButton">Удалить запись</button>
+      </div>
+    </form>
+  </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="print-root" id="printRoot"></div>
