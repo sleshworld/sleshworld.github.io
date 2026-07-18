@@ -3,10 +3,8 @@ const ACTIVE_KEY = "stress-diary-app.active-id.v1";
 const ACTIONS_STORAGE_KEY = "stress-diary-app.action-rows.v1";
 const TRIGGERS_STORAGE_KEY = "stress-diary-app.trigger-rows.v1";
 const VIEW_STORAGE_KEY = "stress-diary-app.active-view.v1";
-const LAST_BACKUP_AT_KEY = "stress-diary-app.last-backup-at.v1";
-const LAST_BACKUP_FINGERPRINT_KEY = "stress-diary-app.last-backup-fingerprint.v1";
+const LAST_BACKUP_ENTRY_IDS_KEY = "stress-diary-app.last-backup-entry-ids.v1";
 const STORAGE_INTRO_SEEN_KEY = "stress-diary-app.storage-intro-seen.v1";
-const BACKUP_REMINDER_DAYS = 7;
 
 const FEELINGS = ["страх", "обида", "вина", "стыд", "тревога", "разочарование", "грусть", "агрессия"];
 
@@ -652,9 +650,7 @@ const elements = {};
 document.addEventListener("DOMContentLoaded", () => {
   bindElements();
   load();
-  if (entries.length === 0 && activeView === "entry") {
-    createEntry("diary", { silent: true });
-  }
+  activeView = "home";
   render();
   bindEvents();
   showStorageIntroIfNeeded();
@@ -683,9 +679,14 @@ function bindElements() {
   elements.backupStatusTitle = document.getElementById("backupStatusTitle");
   elements.backupStatusDetail = document.getElementById("backupStatusDetail");
   elements.storageIntroDialog = document.getElementById("storageIntroDialog");
+  elements.homeView = document.getElementById("homeView");
+  elements.homeRecent = document.getElementById("homeRecent");
+  elements.homeRecentList = document.getElementById("homeRecentList");
+  elements.topbar = document.getElementById("topbar");
 }
 
 function bindEvents() {
+  document.getElementById("homeButton").addEventListener("click", openHome);
   document.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
   document.getElementById("newScenarioButton").addEventListener("click", () => createEntry("scenario"));
@@ -716,6 +717,7 @@ function bindEvents() {
 
   elements.searchInput.addEventListener("input", renderList);
   elements.entryList.addEventListener("click", handleEntryListClick);
+  elements.homeView.addEventListener("click", handleHomeClick);
 
   elements.titleInput.addEventListener("input", () => {
     const entry = getActiveEntry();
@@ -842,6 +844,15 @@ function openRegistry(view) {
   activeView = view;
   save();
   render();
+}
+
+function openHome() {
+  discardEmptyEntries();
+  discardEmptyRegistryRows();
+  activeView = "home";
+  save();
+  render();
+  window.scrollTo({ top: 0 });
 }
 
 function createEmptyActionRow() {
@@ -1040,6 +1051,26 @@ function renderNavigation() {
   });
 }
 
+function renderHome() {
+  const recent = getPersistedEntries()
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 4);
+  elements.homeRecent.classList.toggle("hidden", recent.length === 0);
+  elements.homeRecentList.innerHTML = recent.map((entry) => {
+    const title = entry.title || TYPE_META[entry.type].defaultTitle;
+    const meta = [TYPE_META[entry.type].label, formatDate(entry.date)].filter(Boolean).join(" · ");
+    return `
+      <button class="home-recent-entry" type="button" data-home-entry-id="${escapeAttr(entry.id)}">
+        <span>
+          <strong>${escapeHTML(title)}</strong>
+          <small>${escapeHTML(meta)}</small>
+        </span>
+        <span aria-hidden="true">→</span>
+      </button>
+    `;
+  }).join("");
+}
+
 function renderList() {
   const query = elements.searchInput.value.trim().toLowerCase();
   const sorted = getPersistedEntries().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -1069,12 +1100,23 @@ function renderEntryCard(entry) {
 }
 
 function renderEditor() {
+  const isHome = activeView === "home";
+  document.body.classList.toggle("home-active", isHome);
+  elements.homeView.classList.toggle("hidden", !isHome);
+  elements.topbar.classList.toggle("hidden", isHome);
+  if (isHome) {
+    elements.editorPanel.classList.add("hidden");
+    elements.emptyState.classList.add("hidden");
+    renderHome();
+    return;
+  }
+
   const entry = getActiveEntry();
   const isRegistry = Boolean(REGISTRY_META[activeView]);
   const hasContent = isRegistry || Boolean(entry);
   elements.editorPanel.classList.toggle("hidden", !hasContent);
   elements.emptyState.classList.toggle("hidden", hasContent);
-  document.querySelector(".topbar").classList.toggle("hidden", !hasContent);
+  elements.topbar.classList.toggle("hidden", !hasContent);
 
   if (isRegistry) {
     const meta = REGISTRY_META[activeView];
@@ -1460,6 +1502,30 @@ function handleEntryListClick(event) {
   render();
 }
 
+function handleHomeClick(event) {
+  const newEntryButton = event.target.closest("[data-home-entry]");
+  if (newEntryButton) {
+    createEntry(newEntryButton.dataset.homeEntry);
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
+  const registryButton = event.target.closest("[data-home-view]");
+  if (registryButton) {
+    openRegistry(registryButton.dataset.homeView);
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
+  const recentButton = event.target.closest("[data-home-entry-id]");
+  if (!recentButton) return;
+  activeView = "entry";
+  activeId = recentButton.dataset.homeEntryId;
+  save();
+  render();
+  window.scrollTo({ top: 0 });
+}
+
 function handleFormInput(event) {
   const registryControl = event.target.closest("[data-registry][data-row-index][data-key]");
   if (registryControl) {
@@ -1754,8 +1820,7 @@ function downloadBackup() {
   };
   const date = toDateInputValue(new Date());
   downloadBlob(JSON.stringify(payload, null, 2), `Практики_резервная_копия_${date}.json`, "application/json;charset=utf-8");
-  localStorage.setItem(LAST_BACKUP_AT_KEY, exportedAt);
-  localStorage.setItem(LAST_BACKUP_FINGERPRINT_KEY, createBackupFingerprint(snapshot));
+  localStorage.setItem(LAST_BACKUP_ENTRY_IDS_KEY, JSON.stringify(snapshot.entries.map((entry) => entry.id)));
   renderBackupStatus();
 }
 
@@ -1767,69 +1832,28 @@ function createBackupSnapshot() {
   };
 }
 
-function createBackupFingerprint(snapshot = createBackupSnapshot()) {
-  const source = JSON.stringify(snapshot);
-  let hash = 2166136261;
-  for (let index = 0; index < source.length; index += 1) {
-    hash ^= source.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(36);
-}
-
 function renderBackupStatus() {
   if (!elements.backupStatus) return;
   const snapshot = createBackupSnapshot();
-  const shouldShowReminder = snapshot.entries.length > 3;
+  const backedUpIds = readLastBackupEntryIds();
+  const newEntryCount = snapshot.entries.filter((entry) => !backedUpIds.has(entry.id)).length;
+  const shouldShowReminder = newEntryCount >= 3;
   elements.backupStatus.classList.toggle("hidden", !shouldShowReminder);
   if (!shouldShowReminder) return;
 
-  const lastBackupAt = localStorage.getItem(LAST_BACKUP_AT_KEY) || "";
-  const lastFingerprint = localStorage.getItem(LAST_BACKUP_FINGERPRINT_KEY) || "";
-  const backupDate = new Date(lastBackupAt);
-  const hasValidBackup = lastFingerprint && !Number.isNaN(backupDate.getTime());
-  const hasChanges = !hasValidBackup || lastFingerprint !== createBackupFingerprint(snapshot);
-  const ageInDays = hasValidBackup ? (Date.now() - backupDate.getTime()) / 86400000 : Infinity;
-
-  let state = "attention";
-  let sign = "!";
-  let title = "Создано более 3 записей";
-  let detail = "Лучше сохранить резервную копию.";
-
-  if (hasValidBackup && ageInDays >= BACKUP_REMINDER_DAYS) {
-    title = "Пора обновить резервную копию";
-    detail = `Последняя: ${formatBackupDate(backupDate).toLowerCase()}`;
-  } else if (hasValidBackup && !hasChanges) {
-    state = "current";
-    sign = "✓";
-    title = "Копия актуальна";
-    detail = formatBackupDate(backupDate);
-  } else if (hasValidBackup && ageInDays < BACKUP_REMINDER_DAYS) {
-    state = "changed";
-    title = "Есть изменения после копии";
-    detail = `Последняя: ${formatBackupDate(backupDate).toLowerCase()}`;
-  }
-
-  elements.backupStatus.dataset.state = state;
-  elements.backupStatusSign.textContent = sign;
-  elements.backupStatusTitle.textContent = title;
-  elements.backupStatusDetail.textContent = detail;
+  elements.backupStatus.dataset.state = "attention";
+  elements.backupStatusSign.textContent = "!";
+  elements.backupStatusTitle.textContent = "Добавлено 3 новых записи";
+  elements.backupStatusDetail.textContent = "Лучше сохранить резервную копию.";
 }
 
-function formatBackupDate(date) {
-  const now = new Date();
-  const time = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(date);
-  if (toDateInputValue(date) === toDateInputValue(now)) return `Сегодня, ${time}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (toDateInputValue(date) === toDateInputValue(yesterday)) return `Вчера, ${time}`;
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
+function readLastBackupEntryIds() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(LAST_BACKUP_ENTRY_IDS_KEY) || "[]");
+    return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
 }
 
 function importBackup(event) {

@@ -11,7 +11,7 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Записи">
-      <div class="brand">
+      <button class="brand brand-home-button" type="button" id="homeButton" aria-label="Открыть главную">
         <div class="brand-lockup">
           <div>
             <p class="brand-kicker">Инструменты</p>
@@ -20,7 +20,7 @@
         </div>
         <p>Диагностика, дневник и экспозиции</p>
         <span class="local-badge">Локально</span>
-      </div>
+      </button>
 
       <div class="create-grid" aria-label="Разделы и новые записи">
         <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
@@ -52,7 +52,66 @@
     </aside>
 
     <main class="workspace">
-      <header class="topbar">
+      <section class="home-view hidden" id="homeView">
+        <header class="home-header">
+          <p class="eyebrow">Психологические практики</p>
+          <h1>Что вы хотите сделать?</h1>
+          <p>Выберите практику или вернитесь к одной из последних записей.</p>
+        </header>
+
+        <div class="home-menu" aria-label="Практики">
+          <button class="home-option" type="button" data-home-entry="diary">
+            <span class="home-option-index">01</span>
+            <span>
+              <strong>Дневник</strong>
+              <small>Разобрать ситуацию, мысли, чувства и поведение.</small>
+            </span>
+            <span class="home-option-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="home-option" type="button" data-home-entry="diagnostic">
+            <span class="home-option-index">02</span>
+            <span>
+              <strong>Диагностика</strong>
+              <small>Исследовать чувство, образ себя и связанное воспоминание.</small>
+            </span>
+            <span class="home-option-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="home-option" type="button" data-home-entry="scenario">
+            <span class="home-option-index">03</span>
+            <span>
+              <strong>Сценарий</strong>
+              <small>Подготовить экспозицию и затем заполнить отчёт.</small>
+            </span>
+            <span class="home-option-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="home-option" type="button" data-home-view="actions">
+            <span class="home-option-index">04</span>
+            <span>
+              <strong>Действия</strong>
+              <small>Сверить охранительные, избегающие и адаптивные действия.</small>
+            </span>
+            <span class="home-option-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="home-option" type="button" data-home-view="triggers">
+            <span class="home-option-index">05</span>
+            <span>
+              <strong>Триггеры</strong>
+              <small>Собрать ситуации и оценить их сложность.</small>
+            </span>
+            <span class="home-option-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <section class="home-recent hidden" id="homeRecent">
+          <div class="home-section-heading">
+            <p class="eyebrow">Продолжить</p>
+            <h2>Последние записи</h2>
+          </div>
+          <div class="home-recent-list" id="homeRecentList"></div>
+        </section>
+      </section>
+
+      <header class="topbar hidden" id="topbar">
         <div>
           <p class="eyebrow" id="entryTypeLabel">Запись</p>
           <input class="title-input" id="titleInput" type="text" autocomplete="off" aria-label="Название записи">
@@ -122,8 +181,13 @@
 
   <dialog class="confirm-dialog storage-intro-dialog" id="storageIntroDialog" aria-labelledby="storageIntroTitle" aria-describedby="storageIntroDescription">
     <form class="confirm-dialog-panel" method="dialog">
-      <p class="confirm-dialog-kicker">Перед началом</p>
-      <h2 id="storageIntroTitle">Записи хранятся только в этом браузере</h2>
+      <div class="storage-intro-heading">
+        <span class="storage-intro-sign" aria-hidden="true">!</span>
+        <div>
+          <p class="confirm-dialog-kicker">Перед началом</p>
+          <h2 id="storageIntroTitle">Записи хранятся только в этом браузере</h2>
+        </div>
+      </div>
       <p id="storageIntroDescription">Они не отправляются на сервер и не появятся на другом устройстве или в другом браузере. При очистке данных браузера записи могут исчезнуть.</p>
       <div class="storage-intro-points">
         <p><strong>MD или PDF</strong><span>Для сохранения отдельной записи.</span></p>
