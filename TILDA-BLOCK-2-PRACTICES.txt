@@ -2,7 +2,7 @@
   БЛОК 2 ИЗ 3: СТРУКТУРА ПРАКТИК
   Здесь находятся названия, вопросы, секции и настройки локального хранения.
 -->
-<script id="psychological-practices-definition" data-version="908017602e37">
+<script id="psychological-practices-definition" data-version="78029e6aa42d">
 (() => {
   "use strict";
 
@@ -772,7 +772,7 @@
   ];
 
   window.PsychologicalPracticesDefinition = Object.freeze({
-    version: "908017602e37",
+    version: "78029e6aa42d",
     STORAGE_KEY,
     ACTIVE_KEY,
     ACTIONS_STORAGE_KEY,

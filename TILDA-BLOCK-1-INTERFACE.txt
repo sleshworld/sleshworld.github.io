@@ -41,11 +41,11 @@
   }
 </style>
 
-<div id="psychological-practices-host" data-version="908017602e37">
+<div id="psychological-practices-host" data-version="78029e6aa42d">
   <p class="psychological-practices-status">Для запуска добавьте следом блоки 2 и 3.</p>
 </div>
 
-<template id="psychological-practices-template" data-version="908017602e37">
+<template id="psychological-practices-template" data-version="78029e6aa42d">
   <style>
     :host {
       display: block;
@@ -619,7 +619,8 @@
     }
 
     .tone-mint .protocol-step {
-      background: #8de5c2;
+      background: var(--ink);
+      color: var(--paper);
     }
 
     .report-builder .protocol-section-header {
@@ -2172,12 +2173,13 @@
     }
 
     .mva-intro {
-      border-color: #b8d7c7;
-      background: #edf8f2;
+      border-color: var(--line-soft);
+      border-left: 4px solid var(--accent);
+      background: #f1f1f1;
     }
 
     .mva-intro .protocol-kicker {
-      color: #286f50;
+      color: var(--accent-dark);
     }
 
     .mva-builder {
@@ -2190,7 +2192,8 @@
     }
 
     .mva-phase .protocol-step {
-      background: #286f50;
+      background: var(--ink);
+      color: var(--paper);
     }
 
     .mva-key-step {

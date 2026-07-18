@@ -2,11 +2,11 @@
   БЛОК 3 ИЗ 3: ЛОГИКА ПРИЛОЖЕНИЯ
   Этот блок проверяет версии первых двух блоков и запускает интерфейс.
 -->
-<script id="psychological-practices-application" data-version="908017602e37">
+<script id="psychological-practices-application" data-version="78029e6aa42d">
 (() => {
   "use strict";
 
-  const version = "908017602e37";
+  const version = "78029e6aa42d";
   const host = document.getElementById("psychological-practices-host");
   const template = document.getElementById("psychological-practices-template");
   const definition = window.PsychologicalPracticesDefinition;

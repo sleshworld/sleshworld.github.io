@@ -329,15 +329,30 @@ const { chromium } = require("playwright");
   const mvaTitlePlaceholder = await page.locator("#titleInput").getAttribute("placeholder");
   const mvaSectionCount = await page.locator(".mva-phase").count();
   const mvaKeyStepCount = await page.locator(".mva-key-step[data-protocol-step='08']").count();
+  const mvaPalette = await page.evaluate(() => {
+    const intro = getComputedStyle(document.querySelector(".mva-intro"));
+    const regularStep = getComputedStyle(document.querySelector(".mva-phase[data-protocol-step='01'] .protocol-step"));
+    const keyStep = getComputedStyle(document.querySelector(".mva-key-step .protocol-step"));
+    return {
+      introBackground: intro.backgroundColor,
+      introBorder: intro.borderLeftColor,
+      regularStep: regularStep.backgroundColor,
+      keyStep: keyStep.backgroundColor
+    };
+  });
   if (
     savedAfterBlankMva !== 2 ||
     mvaDateLabel !== "Дата разбора" ||
     mvaTitleLabel !== "Название разбора" ||
     mvaTitlePlaceholder !== "Введите название" ||
     mvaSectionCount !== 10 ||
-    mvaKeyStepCount !== 1
+    mvaKeyStepCount !== 1 ||
+    mvaPalette.introBackground !== "rgb(241, 241, 241)" ||
+    mvaPalette.introBorder !== "rgb(255, 133, 98)" ||
+    mvaPalette.regularStep !== "rgb(22, 22, 22)" ||
+    mvaPalette.keyStep !== "rgb(255, 133, 98)"
   ) {
-    throw new Error(`MVA form is incomplete: ${JSON.stringify({ savedAfterBlankMva, mvaDateLabel, mvaTitleLabel, mvaTitlePlaceholder, mvaSectionCount, mvaKeyStepCount })}`);
+    throw new Error(`MVA form is incomplete: ${JSON.stringify({ savedAfterBlankMva, mvaDateLabel, mvaTitleLabel, mvaTitlePlaceholder, mvaSectionCount, mvaKeyStepCount, mvaPalette })}`);
   }
 
   await page.locator("#titleInput").fill("MVA: разговор о повышении");
@@ -1034,6 +1049,7 @@ const { chromium } = require("playwright");
     savedAfterBlankScenarioToggle,
     savedAfterBlankMva,
     mvaSectionCount,
+    mvaPalette,
     embeddedReportOpened: reportBefore === 0 && reportAfter === 1,
     reportScrollShift,
     savedAfterBlankActions,
