@@ -11,15 +11,21 @@ const FEELINGS = ["страх", "обида", "вина", "стыд", "трев�
 const TYPE_META = {
   diary: {
     label: "Дневник",
-    defaultTitle: "Новый дневник"
+    defaultTitle: "Новый дневник",
+    titleLabel: "Название дневника",
+    titlePlaceholder: "Введите название"
   },
   diagnostic: {
     label: "Диагностика",
-    defaultTitle: "Новая диагностика"
+    defaultTitle: "Новая диагностика",
+    titleLabel: "Название диагностики",
+    titlePlaceholder: "Введите название"
   },
   scenario: {
     label: "Сценарий",
-    defaultTitle: "Новый сценарий"
+    defaultTitle: "Новый сценарий",
+    titleLabel: "Название сценария",
+    titlePlaceholder: "Введите название"
   },
   report: {
     label: "Отчёт",
@@ -659,6 +665,8 @@ document.addEventListener("DOMContentLoaded", () => {
 function bindElements() {
   elements.entryList = document.getElementById("entryList");
   elements.searchInput = document.getElementById("searchInput");
+  elements.titleField = document.getElementById("titleField");
+  elements.titleFieldLabel = document.getElementById("titleFieldLabel");
   elements.titleInput = document.getElementById("titleInput");
   elements.registryTitle = document.getElementById("registryTitle");
   elements.entryTypeLabel = document.getElementById("entryTypeLabel");
@@ -820,6 +828,7 @@ function createEntry(type, options = {}) {
   save();
   render();
   if (!options.silent) {
+    scrollToWorkspace();
     showToast(options.message || "Запись создана");
   }
 }
@@ -843,6 +852,7 @@ function openRegistry(view) {
   activeView = view;
   save();
   render();
+  scrollToWorkspace();
 }
 
 function openHome() {
@@ -1019,7 +1029,10 @@ function handleDeleteDialogClose() {
   if (elements.deleteDialog.returnValue !== "confirm" || !entryId) return;
   if (!entries.some((entry) => entry.id === entryId)) return;
   entries = entries.filter((entry) => entry.id !== entryId);
-  activeId = entries[0]?.id || "";
+  entries = entries.filter(shouldPersistEntry);
+  const remainingEntries = getPersistedEntries();
+  activeId = remainingEntries[0]?.id || "";
+  if (remainingEntries.length === 0) activeView = "home";
   save();
   render();
   showToast("Запись удалена");
@@ -1120,7 +1133,7 @@ function renderEditor() {
   if (isRegistry) {
     const meta = REGISTRY_META[activeView];
     elements.entryTypeLabel.textContent = "Постоянный список";
-    elements.titleInput.classList.add("hidden");
+    elements.titleField.classList.add("hidden");
     elements.registryTitle.classList.remove("hidden");
     elements.registryTitle.textContent = meta.title;
     elements.entryMetaRow.classList.add("hidden");
@@ -1135,12 +1148,15 @@ function renderEditor() {
   if (!entry) return;
 
   elements.entryTypeLabel.textContent = TYPE_META[entry.type].label;
-  elements.titleInput.classList.remove("hidden");
+  elements.titleField.classList.remove("hidden");
   elements.registryTitle.classList.add("hidden");
   elements.entryMetaRow.classList.remove("hidden");
   document.getElementById("duplicateButton").classList.remove("hidden");
   document.getElementById("deleteButton").classList.remove("hidden");
-  elements.titleInput.value = entry.title || TYPE_META[entry.type].defaultTitle;
+  const titleMeta = TYPE_META[entry.type];
+  elements.titleFieldLabel.textContent = titleMeta.titleLabel || "Название записи";
+  elements.titleInput.placeholder = titleMeta.titlePlaceholder || "Введите название";
+  elements.titleInput.value = entry.title === titleMeta.defaultTitle ? "" : (entry.title || "");
   elements.entryDateLabel.textContent = getEntryDateLabel(entry.type);
   elements.entryDateInput.value = entry.date || "";
   elements.tagsInput.value = entry.tags || "";
@@ -1499,20 +1515,19 @@ function handleEntryListClick(event) {
   activeId = card.dataset.entryId;
   save();
   render();
+  scrollToWorkspace();
 }
 
 function handleHomeClick(event) {
   const newEntryButton = event.target.closest("[data-home-entry]");
   if (newEntryButton) {
     createEntry(newEntryButton.dataset.homeEntry);
-    window.scrollTo({ top: 0 });
     return;
   }
 
   const registryButton = event.target.closest("[data-home-view]");
   if (registryButton) {
     openRegistry(registryButton.dataset.homeView);
-    window.scrollTo({ top: 0 });
     return;
   }
 
@@ -1522,6 +1537,14 @@ function handleHomeClick(event) {
   activeId = recentButton.dataset.homeEntryId;
   save();
   render();
+  scrollToWorkspace();
+}
+
+function scrollToWorkspace() {
+  if (window.matchMedia("(max-width: 980px)").matches) {
+    elements.topbar.scrollIntoView({ block: "start" });
+    return;
+  }
   window.scrollTo({ top: 0 });
 }
 

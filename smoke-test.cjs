@@ -96,6 +96,22 @@ const { chromium } = require("playwright");
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
   await page.locator("[data-home-entry='diary']").click();
+  const titleFieldLabel = await page.locator("#titleFieldLabel").textContent();
+  const titleFieldPlaceholder = await page.locator("#titleInput").getAttribute("placeholder");
+  const initialTitleValue = await page.locator("#titleInput").inputValue();
+  if (titleFieldLabel !== "Название дневника" || titleFieldPlaceholder !== "Введите название" || initialTitleValue !== "") {
+    throw new Error(`Entry title field is not self-explanatory: label=${titleFieldLabel}, placeholder=${titleFieldPlaceholder}, value=${initialTitleValue}`);
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "entry-title-field-desktop.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator("#homeButton").click();
+    await page.locator("[data-home-entry='diary']").click();
+    const mobileTopbarBox = await page.locator("#topbar").boundingBox();
+    if (mobileTopbarBox.y > 1) throw new Error(`Mobile entry did not scroll to the form: topbarY=${mobileTopbarBox.y}`);
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "entry-title-field-mobile.png") });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
   const storageNote = (await page.locator(".storage-note").textContent()).toLowerCase();
   if (
     !storageNote.includes("только в этом браузере") ||
@@ -805,6 +821,27 @@ const { chromium } = require("playwright");
   if (!backupReminderVisibleAgain) throw new Error("Backup reminder did not reappear after three more new entries");
   await backupReminderPage.close();
 
+  const lastDeletePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await lastDeletePage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
+  await lastDeletePage.evaluate(() => localStorage.clear());
+  await lastDeletePage.reload();
+  await lastDeletePage.locator("#storageIntroCloseButton").click();
+  await lastDeletePage.locator("[data-home-entry='diary']").click();
+  await lastDeletePage.locator("#titleInput").fill("Единственная запись");
+  await lastDeletePage.locator("textarea[data-path='fields.situation']").fill("Ситуация для проверки удаления");
+  await lastDeletePage.locator("#deleteButton").click();
+  await lastDeletePage.locator("#confirmDeleteButton").click();
+  await lastDeletePage.waitForFunction(() => document.querySelector("#homeView") && !document.querySelector("#homeView").classList.contains("hidden"));
+  const lastDeleteState = await lastDeletePage.evaluate(() => ({
+    storedEntries: JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length,
+    homeVisible: !document.querySelector("#homeView").classList.contains("hidden"),
+    emptyStateVisible: !document.querySelector("#emptyState").classList.contains("hidden")
+  }));
+  if (lastDeleteState.storedEntries !== 0 || !lastDeleteState.homeVisible || lastDeleteState.emptyStateVisible) {
+    throw new Error(`Deleting the last entry did not return home: ${JSON.stringify(lastDeleteState)}`);
+  }
+  await lastDeletePage.close();
+
   const mobilePrintPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobilePrintPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
   await mobilePrintPage.evaluate(() => localStorage.clear());
@@ -934,6 +971,7 @@ const { chromium } = require("playwright");
     backupReminderVisibleAgain,
     mobilePrintState,
     mobileRegistryPrintState,
+    lastDeleteState,
     storageIntroOpen,
     storageIntroReopened,
     backupStatusHiddenAtTwo,

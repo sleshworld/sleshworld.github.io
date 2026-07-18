@@ -1879,8 +1879,46 @@ input[type="range"] {
   letter-spacing: 0;
 }
 
-.title-input {
-  border-bottom-width: 1px;
+.topbar > div:first-child {
+  min-width: 0;
+}
+
+.title-field {
+  display: grid;
+  max-width: 680px;
+  gap: 6px;
+}
+
+.title-field > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.title-field .title-input {
+  width: 100%;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 9px 12px;
+  font-size: 27px;
+  line-height: 1.15;
+}
+
+.title-field .title-input:hover {
+  border-color: #969696;
+}
+
+.title-field .title-input:focus {
+  border-color: var(--ink);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(22, 22, 22, 0.08);
+}
+
+.title-field .title-input::placeholder {
+  color: var(--muted-2);
+  font-weight: 400;
+  opacity: 1;
 }
 
 .actions {
@@ -2355,6 +2393,10 @@ input[type="range"] {
   .title-input,
   .registry-title {
     font-size: 30px;
+  }
+
+  .title-field .title-input {
+    font-size: 24px;
   }
 
   .section-header h2 {
