@@ -1,0 +1,673 @@
+<!--
+  БЛОК 2 ИЗ 3: СТРУКТУРА ПРАКТИК
+  Здесь находятся названия, вопросы, секции и настройки локального хранения.
+-->
+<script id="psychological-practices-definition" data-version="26e29b4895ec">
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "psychological-practices.entries.v1";
+  const ACTIVE_KEY = "psychological-practices.active-id.v1";
+  const ACTIONS_STORAGE_KEY = "psychological-practices.action-rows.v1";
+  const TRIGGERS_STORAGE_KEY = "psychological-practices.trigger-rows.v1";
+  const VIEW_STORAGE_KEY = "psychological-practices.active-view.v1";
+  const LAST_BACKUP_ENTRY_IDS_KEY = "psychological-practices.last-backup-entry-ids.v1";
+  const STORAGE_INTRO_SEEN_KEY = "psychological-practices.storage-intro-seen.v1";
+
+  const FEELINGS = ["страх", "обида", "вина", "стыд", "тревога", "разочарование", "грусть", "агрессия"];
+
+  const TYPE_META = {
+    diary: {
+      label: "Дневник",
+      defaultTitle: "Новый дневник",
+      titleLabel: "Название дневника",
+      titlePlaceholder: "Введите название"
+    },
+    diagnostic: {
+      label: "Диагностика",
+      defaultTitle: "Новая диагностика",
+      titleLabel: "Название диагностики",
+      titlePlaceholder: "Введите название"
+    },
+    scenario: {
+      label: "Сценарий",
+      defaultTitle: "Новый сценарий",
+      titleLabel: "Название сценария",
+      titlePlaceholder: "Введите название"
+    },
+    report: {
+      label: "Отчёт",
+      defaultTitle: "Новый отчёт"
+    },
+    actions: {
+      label: "Охранительные действия",
+      defaultTitle: "Новые действия"
+    }
+  };
+
+  const REGISTRY_META = {
+    actions: {
+      label: "Действия",
+      title: "Список действий",
+      fileName: "Список_действий"
+    },
+    triggers: {
+      label: "Триггеры",
+      title: "Список триггеров",
+      fileName: "Список_триггеров"
+    }
+  };
+
+  const DIAGNOSTIC_SECTIONS = [
+    {
+      title: "Ситуация",
+      index: "1",
+      fields: [
+        {
+          key: "situation",
+          label: "Ситуация",
+          hint: "Любая ситуация, которая беспокоит сейчас, в прошлом или будущем. Вспомни сам момент возникновения чувства.",
+          rows: 5
+        },
+        {
+          key: "bodySensations",
+          label: "Чувство в теле и телесные ощущения",
+          hint: "От горла до эпигастрии.",
+          rows: 3
+        },
+        {
+          key: "feelingIntensity",
+          label: "Сила чувства",
+          kind: "range"
+        },
+        {
+          key: "feelingName",
+          label: "Название чувства",
+          rows: 2
+        }
+      ]
+    },
+    {
+      title: "Усиление",
+      index: "2",
+      fields: [
+        {
+          key: "amplification",
+          label: "Что может произойти, чтобы чувство стало сильнее?",
+          hint: "Можно фантастическое, нелогичное или чрезмерное. Здесь не нужна рациональная проверка.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Какая я?",
+      index: "3",
+      fields: [
+        {
+          key: "selfDefinition",
+          label: "Какой я себя чувствую в ситуации с усилением?",
+          hint: "Прилагательное без 'не'.",
+          rows: 2
+        }
+      ]
+    },
+    {
+      title: "Еще усиление",
+      index: "4",
+      fields: [
+        {
+          key: "amplificationMore",
+          label: "Что еще может произойти в ситуации из пункта 2?",
+          hint: "Так, чтобы определение из пункта 3 стало сильнее.",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Образ себя и мира",
+      index: "5",
+      fields: [
+        {
+          key: "selfDefinitionStronger",
+          label: "Какой себя почувствуешь?",
+          hint: "Прилагательное без 'не'.",
+          rows: 2
+        },
+        {
+          key: "otherDefinitions",
+          label: "Какими ты видишь других людей?",
+          rows: 3
+        },
+        {
+          key: "worldDefinition",
+          label: "Какой мир?",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Кто бы мог усилить?",
+      index: "6",
+      fields: [
+        {
+          key: "amplifierPerson",
+          label: "Кто может появиться в сцене?",
+          hint: "Желательно знакомый до 12 лет. Можно подставить умершего человека как образ в сцене.",
+          rows: 3
+        },
+        {
+          key: "amplifierAction",
+          label: "Что он, она или они могли бы сказать или сделать?",
+          rows: 4
+        },
+        {
+          key: "worseVariant",
+          label: "Что было бы хуже?",
+          hint: "Никого, толпа незнакомых, знакомые, родственники, учитель, врач или другой вариант.",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Воспоминание",
+      index: "7",
+      fields: [
+        {
+          key: "childhoodMemory",
+          label: "Воспоминание или я из детства, связанные с этим человеком или толпой",
+          hint: "Если не приходит сразу, можно оставить пустым и вернуться позже.",
+          rows: 5
+        }
+      ]
+    }
+  ];
+
+  const DIARY_SECTIONS = [
+    {
+      title: "Ситуация",
+      index: "1",
+      fields: [
+        {
+          key: "situation",
+          label: "Ситуация",
+          hint: "Любая ситуация, которая беспокоит сейчас, в прошлом или будущем. Вспомни сам момент возникновения чувства.",
+          rows: 5
+        }
+      ]
+    },
+    {
+      title: "Тело",
+      index: "2",
+      fields: [
+        {
+          key: "bodySensations",
+          label: "Чувство в теле и телесные ощущения",
+          hint: "От горла до эпигастрии.",
+          rows: 4
+        },
+        {
+          key: "feelingIntensityBefore",
+          label: "Сила чувства",
+          kind: "range"
+        },
+        {
+          key: "bodyFeelingName",
+          label: "Название чувства",
+          rows: 2
+        }
+      ]
+    },
+    {
+      title: "Основное чувство",
+      index: "3",
+      fields: [
+        {
+          key: "coreFeeling",
+          label: "Какое чувство возникает?",
+          hint: "Выбери одно основное чувство. При панике или страхе смерти: представь, что это уже случилось, а ты призрак.",
+          kind: "chips",
+          options: FEELINGS
+        }
+      ]
+    },
+    {
+      title: "Мысли",
+      index: "4",
+      fields: [
+        {
+          key: "thoughtsFlow",
+          label: "Какие мысли вызывает это чувство?",
+          hint: "Весь поток мыслей как цитаты. Если одна мысль типа 'пиздец', спроси: 'и что это для меня значит?'",
+          rows: 6
+        },
+        {
+          key: "worstThought",
+          label: "Самая неприятная мысль",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Образ себя и мира",
+      index: "5",
+      fields: [
+        {
+          key: "selfDefinition",
+          label: "Какой себя почувствуешь в ситуации мыслей из пункта 4?",
+          rows: 3
+        },
+        {
+          key: "otherDefinitions",
+          label: "Какими ты видишь других людей?",
+          rows: 3
+        },
+        {
+          key: "worldDefinition",
+          label: "Какой мир?",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Поведение",
+      index: "6",
+      fields: [
+        {
+          key: "behavior",
+          label: "Что я делаю после мыслей в голове?",
+          hint: "Сними ситуацию пункта 1 с паузы и посмотри, что начал делать, начал бы делать или уже делаешь, чтобы этого не произошло.",
+          rows: 5
+        },
+        {
+          key: "problemSolved",
+          label: "Какую проблему решало действие?",
+          hint: "Если действие решало не реальную проблему, а облегчало чувство, переходи к рационализации.",
+          rows: 3
+        }
+      ]
+    }
+  ];
+
+  const SCENARIO_SECTIONS = [
+    {
+      title: "Задача и безопасность",
+      index: "01",
+      tone: "coral",
+      fields: [
+        {
+          key: "purpose",
+          label: "Зачем я это делаю?",
+          hint: "Какую реальную задачу решаю и чему хочу научить мозг?",
+          rows: 3
+        },
+        {
+          key: "triggerSituation",
+          label: "Какой триггер или ситуация?",
+          hint: "Опиши конкретно, без общей формулировки.",
+          rows: 4
+        },
+        {
+          key: "safetyRationale",
+          label: "Почему это страшно, но безопасно?",
+          hint: "Отдели чувство опасности от реального риска.",
+          rows: 4
+        },
+        {
+          key: "stopConditions",
+          label: "При каких реальных условиях я остановлюсь?",
+          hint: "Только объективные границы безопасности, не сила чувства.",
+          rows: 3
+        },
+        {
+          key: "expectedFeeling",
+          label: "Какое чувство ожидаю?",
+          rows: 2
+        },
+        {
+          key: "expectedIntensity",
+          label: "Ожидаемая сила чувства",
+          kind: "range"
+        }
+      ]
+    },
+    {
+      title: "Координаты",
+      index: "02",
+      tone: "yellow",
+      fields: [
+        {
+          key: "plannedTime",
+          label: "Во сколько начинаю?",
+          kind: "time"
+        },
+        {
+          key: "place",
+          label: "Где это происходит?",
+          rows: 2
+        },
+        {
+          key: "minimumDuration",
+          label: "Минимальная длительность",
+          kind: "number",
+          min: 1,
+          suffix: "мин"
+        },
+        {
+          key: "preparation",
+          label: "Что подготовлю заранее?",
+          hint: "Только то, что нужно для задачи, а не для успокоения чувства.",
+          rows: 3
+        }
+      ]
+    },
+    {
+      title: "Маршрут",
+      index: "03",
+      tone: "blue",
+      fields: [
+        {
+          key: "steps",
+          label: "Что я буду делать шаг за шагом?",
+          hint: "Один наблюдаемый шаг на строку: действие, фраза, ожидание, переход.",
+          kind: "ordered-list"
+        }
+      ]
+    },
+    {
+      title: "Без спасения от чувства",
+      index: "04",
+      tone: "ink",
+      fields: [
+        {
+          key: "noDoActions",
+          label: "Что я НЕ буду делать?",
+          hint: "Телефон, оправдания, спешка, избегание взгляда и любые микро-побеги.",
+          kind: "checklist"
+        }
+      ]
+    },
+    {
+      title: "Как проживаю чувство",
+      index: "05",
+      tone: "mint",
+      fields: [
+        {
+          key: "bodyFocus",
+          label: "На каких телесных ощущениях удерживаю внимание?",
+          hint: "Что наблюдаю во время сканера вместо внутренних успокоений?",
+          rows: 4
+        },
+        {
+          key: "physicalAmplification",
+          label: "Как физически усилю реакцию?",
+          hint: "Только телесным действием, без усиления фантазией и мыслями.",
+          rows: 3
+        },
+        {
+          key: "endingAction",
+          label: "Как рационально завершу ситуацию?",
+          rows: 3
+        },
+        {
+          key: "completionCriteria",
+          label: "Когда сценарий считается выполненным?",
+          hint: "Критерий поведения и времени, а не обязательное снижение чувства до нуля.",
+          rows: 3
+        }
+      ]
+    }
+  ];
+
+  const REPORT_SECTIONS = [
+    {
+      title: "Как всё происходило",
+      index: "01",
+      fields: [
+        {
+          key: "reportDate",
+          label: "Когда выполнил сценарий?",
+          kind: "date"
+        },
+        {
+          key: "planChanges",
+          label: "Что изменилось относительно плана?",
+          hint: "Погода, место, одежда, время и другие фактические изменения.",
+          rows: 4
+        },
+        {
+          key: "actualEvents",
+          label: "Хронология прохождения",
+          hint: "Один эпизод на строку: что сделал, что почувствовал, что произошло дальше.",
+          kind: "ordered-list"
+        },
+        {
+          key: "actualDuration",
+          label: "Сколько длилось?",
+          kind: "number",
+          min: 1,
+          suffix: "мин"
+        }
+      ]
+    },
+    {
+      title: "Динамика чувства",
+      index: "02",
+      fields: [
+        { key: "feelingBefore", label: "До начала", kind: "range" },
+        { key: "feelingPeak", label: "На пике", kind: "range" },
+        { key: "feelingAfter", label: "В конце", kind: "range" },
+        {
+          key: "bodySensations",
+          label: "Что происходило в теле и как я это усиливал?",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Охранительное и избегающее поведение",
+      index: "03",
+      fields: [
+        {
+          key: "avoidedActions",
+          label: "Что удалось НЕ делать?",
+          rows: 4
+        },
+        {
+          key: "escapeSlips",
+          label: "Какие микро-побеги всё-таки появились?",
+          hint: "Без самокритики: телефон, спешка, оправдание, закрытая поза, заполнение пауз.",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Факты и вывод",
+      index: "04",
+      fields: [
+        {
+          key: "observedFacts",
+          label: "Что реально происходило и как реагировали люди?",
+          hint: "Наблюдаемые факты отдельно от догадок.",
+          rows: 5
+        },
+        {
+          key: "result",
+          label: "Чем закончилась ситуация?",
+          rows: 4
+        },
+        {
+          key: "learning",
+          label: "Что нового узнал мозг?",
+          rows: 4
+        },
+        {
+          key: "nextAttempt",
+          label: "Что повторю или изменю в следующий раз?",
+          rows: 4
+        },
+        {
+          key: "notes",
+          label: "Что ещё важно сохранить из этого опыта?",
+          hint: "Инсайт, вопрос к психологу или деталь, которую не хочется потерять.",
+          rows: 4
+        }
+      ]
+    }
+  ];
+
+  const ACTION_COLUMNS = [
+    {
+      key: "situation",
+      label: "Ситуация",
+      placeholder: "Что происходит или что нужно сделать?"
+    },
+    {
+      key: "feelingsAndSelf",
+      label: "Чувство в % + какой я буду",
+      placeholder: "Тревога 80%, стыд 50%\nКаким буду: слабым, глупым..."
+    },
+    {
+      key: "protectiveAction",
+      label: "Охранительное действие",
+      placeholder: "Что делаю, чтобы снизить чувство?"
+    },
+    {
+      key: "avoidantAction",
+      label: "Избегающее действие",
+      placeholder: "Как избегаю или откладываю?"
+    },
+    {
+      key: "adaptiveBehavior",
+      label: "Адаптивное поведение",
+      placeholder: "Что сделал бы без чувства?"
+    }
+  ];
+
+  const TRIGGER_COLUMNS = [
+    {
+      key: "situation",
+      label: "Ситуация / триггер",
+      placeholder: "Что вызывает чувство или задевает убеждение?"
+    },
+    {
+      key: "difficulty",
+      label: "Сложность для психики",
+      placeholder: "0-100",
+      kind: "percent"
+    },
+    {
+      key: "avoidanceActions",
+      label: "Охранительно-избегающие действия",
+      placeholder: "Как успокаиваюсь, спасаюсь или избегаю?"
+    }
+  ];
+
+  const RATIONALIZATION_SECTIONS = [
+    {
+      title: "Проверка мысли",
+      index: "7.1-7.3",
+      fields: [
+        {
+          key: "evidenceFor",
+          label: "Какие доказательства того, что моя мысль верна?",
+          hint: "Мысль из пункта 4 дневника.",
+          rows: 4
+        },
+        {
+          key: "evidenceAgainst",
+          label: "Какие доказательства того, что моя мысль неверна или не совсем верна?",
+          rows: 4
+        },
+        {
+          key: "alternativeView",
+          label: "Есть ли другой взгляд и альтернативное объяснение?",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Исходы",
+      index: "7.4-7.6",
+      fields: [
+        {
+          key: "worstOutcome",
+          label: "Что самое плохое может произойти и смогу ли я справиться? Как справлюсь?",
+          rows: 4
+        },
+        {
+          key: "bestOutcome",
+          label: "Что самое лучшее может произойти?",
+          rows: 3
+        },
+        {
+          key: "realisticOutcome",
+          label: "Какой реалистичный результат?",
+          rows: 3
+        },
+        {
+          key: "thoughtConsequences",
+          label: "Каковы последствия для меня от мыслей из пункта 4 дневника?",
+          rows: 4
+        }
+      ]
+    },
+    {
+      title: "Действие",
+      index: "7.7-7.12",
+      fields: [
+        {
+          key: "thinkingChange",
+          label: "Что изменится от изменения моего мышления?",
+          rows: 3
+        },
+        {
+          key: "friendAdvice",
+          label: "Что бы я посоветовал другу в такой же ситуации?",
+          rows: 3
+        },
+        {
+          key: "nextAction",
+          label: "Что мне надо сделать в этой ситуации?",
+          rows: 3
+        },
+        {
+          key: "aiAction",
+          label: "Что бы сделал искусственный интеллект в моей ситуации?",
+          rows: 3
+        },
+        {
+          key: "withoutFeeling",
+          label: "Что бы я сделал, если бы возникшего чувства не было?",
+          rows: 3
+        },
+        {
+          key: "feelingIntensityAfter",
+          label: "Сила чувства после рационализации",
+          kind: "range"
+        }
+      ]
+    }
+  ];
+
+  window.PsychologicalPracticesDefinition = Object.freeze({
+    version: "26e29b4895ec",
+    STORAGE_KEY,
+    ACTIVE_KEY,
+    ACTIONS_STORAGE_KEY,
+    TRIGGERS_STORAGE_KEY,
+    VIEW_STORAGE_KEY,
+    LAST_BACKUP_ENTRY_IDS_KEY,
+    STORAGE_INTRO_SEEN_KEY,
+    FEELINGS,
+    TYPE_META,
+    REGISTRY_META,
+    DIAGNOSTIC_SECTIONS,
+    DIARY_SECTIONS,
+    SCENARIO_SECTIONS,
+    REPORT_SECTIONS,
+    ACTION_COLUMNS,
+    TRIGGER_COLUMNS,
+    RATIONALIZATION_SECTIONS
+  });
+})();
+</script>

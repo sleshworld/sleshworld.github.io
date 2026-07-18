@@ -1,0 +1,1924 @@
+<!--
+  БЛОК 3 ИЗ 3: ЛОГИКА ПРИЛОЖЕНИЯ
+  Этот блок проверяет версии первых двух блоков и запускает интерфейс.
+-->
+<script id="psychological-practices-application" data-version="26e29b4895ec">
+(() => {
+  "use strict";
+
+  const version = "26e29b4895ec";
+  const host = document.getElementById("psychological-practices-host");
+  const template = document.getElementById("psychological-practices-template");
+  const definition = window.PsychologicalPracticesDefinition;
+  const showSetupError = (message) => {
+    if (host) {
+      host.textContent = "";
+      const status = document.createElement("p");
+      status.className = "psychological-practices-status";
+      status.textContent = message;
+      host.appendChild(status);
+    }
+    console.error(message);
+  };
+
+  if (!host || !template || !definition) {
+    showSetupError("Не найдены все три блока приложения. Проверьте порядок T123: 1, 2, 3.");
+    return;
+  }
+  if (host.dataset.version !== version || template.dataset.version !== version || definition.version !== version) {
+    showSetupError("Блоки приложения относятся к разным версиям. Замените все три блока.");
+    return;
+  }
+  if (host.shadowRoot) return;
+
+  const {
+    STORAGE_KEY,
+    ACTIVE_KEY,
+    ACTIONS_STORAGE_KEY,
+    TRIGGERS_STORAGE_KEY,
+    VIEW_STORAGE_KEY,
+    LAST_BACKUP_ENTRY_IDS_KEY,
+    STORAGE_INTRO_SEEN_KEY,
+    FEELINGS,
+    TYPE_META,
+    REGISTRY_META,
+    DIAGNOSTIC_SECTIONS,
+    DIARY_SECTIONS,
+    SCENARIO_SECTIONS,
+    REPORT_SECTIONS,
+    ACTION_COLUMNS,
+    TRIGGER_COLUMNS,
+    RATIONALIZATION_SECTIONS
+  } = definition;
+  const root = host.attachShadow({ mode: "open" });
+  root.appendChild(template.content.cloneNode(true));
+  template.remove();
+
+  let tildaPrintParent = null;
+  let tildaPrintNextSibling = null;
+
+  function prepareTildaPrintHost() {
+    if (host.parentNode === document.body) return;
+    tildaPrintParent = host.parentNode;
+    tildaPrintNextSibling = host.nextSibling;
+    document.body.appendChild(host);
+  }
+
+  function restoreTildaPrintHost() {
+    if (!tildaPrintParent) return;
+    if (tildaPrintNextSibling && tildaPrintNextSibling.parentNode === tildaPrintParent) {
+      tildaPrintParent.insertBefore(host, tildaPrintNextSibling);
+    } else {
+      tildaPrintParent.appendChild(host);
+    }
+    tildaPrintParent = null;
+    tildaPrintNextSibling = null;
+  }
+
+  function migrateLegacyTildaStorage() {
+    const legacyEntries = localStorage.getItem("mdpsy.stress-diary.entries.v1");
+    const legacyActiveId = localStorage.getItem("mdpsy.stress-diary.active-id.v1");
+    if (!localStorage.getItem(STORAGE_KEY) && legacyEntries) {
+      localStorage.setItem(STORAGE_KEY, legacyEntries);
+    }
+    if (!localStorage.getItem(ACTIVE_KEY) && legacyActiveId) {
+      localStorage.setItem(ACTIVE_KEY, legacyActiveId);
+    }
+  }
+
+  let entries = [];
+  let activeId = "";
+  let actionRows = [];
+  let triggerRows = [];
+  let activeView = "entry";
+  let toastTimer = 0;
+  let listRenderTimer = 0;
+  let printCleanupTimer = 0;
+  let titleBeforePrint = "";
+
+  const elements = {};
+
+  migrateLegacyTildaStorage();
+  bindElements();
+  load();
+  activeView = "home";
+  render();
+  bindEvents();
+  showStorageIntroIfNeeded();
+
+  function bindElements() {
+    elements.entryList = root.getElementById("entryList");
+    elements.searchInput = root.getElementById("searchInput");
+    elements.titleField = root.getElementById("titleField");
+    elements.titleFieldLabel = root.getElementById("titleFieldLabel");
+    elements.titleInput = root.getElementById("titleInput");
+    elements.registryTitle = root.getElementById("registryTitle");
+    elements.entryTypeLabel = root.getElementById("entryTypeLabel");
+    elements.entryDateLabel = root.getElementById("entryDateLabel");
+    elements.entryDateInput = root.getElementById("entryDateInput");
+    elements.tagsInput = root.getElementById("tagsInput");
+    elements.entryMetaRow = root.getElementById("entryMetaRow");
+    elements.formRoot = root.getElementById("formRoot");
+    elements.editorPanel = root.getElementById("editorPanel");
+    elements.emptyState = root.getElementById("emptyState");
+    elements.toast = root.getElementById("toast");
+    elements.printRoot = root.getElementById("printRoot");
+    elements.importFileInput = root.getElementById("importFileInput");
+    elements.deleteDialog = root.getElementById("deleteDialog");
+    elements.deleteDialogRecord = root.getElementById("deleteDialogRecord");
+    elements.backupStatus = root.getElementById("backupStatus");
+    elements.backupStatusTitle = root.getElementById("backupStatusTitle");
+    elements.backupStatusDetail = root.getElementById("backupStatusDetail");
+    elements.storageIntroDialog = root.getElementById("storageIntroDialog");
+    elements.homeView = root.getElementById("homeView");
+    elements.homeRecent = root.getElementById("homeRecent");
+    elements.homeRecentList = root.getElementById("homeRecentList");
+    elements.topbar = root.getElementById("topbar");
+  }
+
+  function bindEvents() {
+    root.getElementById("homeButton").addEventListener("click", openHome);
+    root.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
+    root.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+    root.getElementById("newScenarioButton").addEventListener("click", () => createEntry("scenario"));
+    root.getElementById("actionsPageButton").addEventListener("click", () => openRegistry("actions"));
+    root.getElementById("triggersPageButton").addEventListener("click", () => openRegistry("triggers"));
+    root.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
+    root.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+    root.getElementById("emptyNewScenarioButton").addEventListener("click", () => createEntry("scenario"));
+    root.getElementById("emptyActionsPageButton").addEventListener("click", () => openRegistry("actions"));
+    root.getElementById("emptyTriggersPageButton").addEventListener("click", () => openRegistry("triggers"));
+    root.getElementById("duplicateButton").addEventListener("click", duplicateActive);
+    root.getElementById("deleteButton").addEventListener("click", deleteActive);
+    root.getElementById("copyButton").addEventListener("click", copyActive);
+    root.getElementById("downloadMarkdownButton").addEventListener("click", downloadActiveMarkdown);
+    root.getElementById("printButton").addEventListener("click", printActive);
+    root.getElementById("storagePrintButton").addEventListener("click", printActive);
+    root.getElementById("backupButton").addEventListener("click", downloadBackup);
+    root.getElementById("importButton").addEventListener("click", () => elements.importFileInput.click());
+    elements.importFileInput.addEventListener("change", importBackup);
+    elements.deleteDialog.addEventListener("close", handleDeleteDialogClose);
+    elements.deleteDialog.addEventListener("click", (event) => {
+      if (event.target === elements.deleteDialog) elements.deleteDialog.close("cancel");
+    });
+    elements.storageIntroDialog.addEventListener("close", handleStorageIntroClose);
+    elements.storageIntroDialog.addEventListener("click", (event) => {
+      if (event.target === elements.storageIntroDialog) elements.storageIntroDialog.close("cancel");
+    });
+
+    elements.searchInput.addEventListener("input", renderList);
+    elements.entryList.addEventListener("click", handleEntryListClick);
+    elements.homeView.addEventListener("click", handleHomeClick);
+
+    elements.titleInput.addEventListener("input", () => {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      entry.title = elements.titleInput.value;
+      touchAndSave(entry);
+    });
+
+    elements.entryDateInput.addEventListener("input", () => {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      entry.date = elements.entryDateInput.value;
+      touchAndSave(entry);
+    });
+
+    elements.tagsInput.addEventListener("input", () => {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      entry.tags = elements.tagsInput.value;
+      touchAndSave(entry);
+    });
+
+    elements.formRoot.addEventListener("input", handleFormInput);
+    elements.formRoot.addEventListener("change", handleFormChange);
+    elements.formRoot.addEventListener("click", handleFormClick);
+    window.addEventListener("afterprint", cleanupPrint);
+  }
+
+  function load() {
+    try {
+      entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (!Array.isArray(entries)) entries = [];
+    } catch {
+      entries = [];
+    }
+    const storedActiveId = localStorage.getItem(ACTIVE_KEY) || "";
+    const migration = migrateLegacyReports(entries.map(normalizeEntry), storedActiveId);
+    const normalizedEntries = migration.entries;
+    const legacyActionEntries = normalizedEntries.filter((entry) => entry.type === "actions");
+    const legacyActionRows = legacyActionEntries.flatMap((entry) => entry.fields.actionRows || []);
+    actionRows = mergeRegistryRows(
+      readStoredRows(ACTIONS_STORAGE_KEY),
+      legacyActionRows,
+      ACTION_COLUMNS
+    );
+    triggerRows = normalizeRegistryRows(readStoredRows(TRIGGERS_STORAGE_KEY), TRIGGER_COLUMNS);
+    entries = normalizedEntries
+      .filter((entry) => entry.type !== "actions")
+      .filter(shouldPersistEntry);
+    const storedView = localStorage.getItem(VIEW_STORAGE_KEY);
+    activeId = migration.activeId;
+    activeView = storedView && REGISTRY_META[storedView]
+      ? storedView
+      : (legacyActionEntries.some((entry) => entry.id === activeId) ? "actions" : "entry");
+    if (!entries.some((entry) => entry.id === activeId)) {
+      activeId = entries[0]?.id || "";
+    }
+    if (legacyActionEntries.length || migration.changed) save();
+  }
+
+  function save() {
+    const persistedEntries = getPersistedEntries();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedEntries));
+    localStorage.setItem(ACTIONS_STORAGE_KEY, JSON.stringify(getPersistedRegistryRows(actionRows)));
+    localStorage.setItem(TRIGGERS_STORAGE_KEY, JSON.stringify(getPersistedRegistryRows(triggerRows)));
+    localStorage.setItem(VIEW_STORAGE_KEY, activeView);
+    if (persistedEntries.some((entry) => entry.id === activeId)) {
+      localStorage.setItem(ACTIVE_KEY, activeId);
+    } else {
+      localStorage.removeItem(ACTIVE_KEY);
+    }
+    renderBackupStatus();
+  }
+
+  function createEntry(type, options = {}) {
+    if (!TYPE_META[type] || type === "actions" || type === "report") return;
+    discardEmptyEntries();
+    discardEmptyRegistryRows();
+    activeView = "entry";
+    const now = new Date();
+    const entry = {
+      id: createId(),
+      type,
+      title: options.title || TYPE_META[type].defaultTitle,
+      date: options.date || toDateInputValue(now),
+      tags: options.tags || "",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      fields: {
+        ...createDefaultEntryFields(type),
+        ...(options.fields || {})
+      },
+      rationalization: {},
+      rationalizationEnabled: false,
+      report: type === "scenario" ? createDefaultReport() : {},
+      reportEnabled: false,
+      notes: ""
+    };
+    entries.unshift(entry);
+    activeId = entry.id;
+    save();
+    render();
+    if (!options.silent) {
+      scrollToWorkspace();
+      showToast(options.message || "Запись создана");
+    }
+  }
+
+  function createDefaultEntryFields(type) {
+    if (type === "scenario") return { steps: [""], noDoActions: [""] };
+    return {};
+  }
+
+  function createDefaultReport(values = {}) {
+    const report = values && typeof values === "object" ? { ...values } : {};
+    delete report.linkedScenarioId;
+    if (!Array.isArray(report.actualEvents)) report.actualEvents = [""];
+    return report;
+  }
+
+  function openRegistry(view) {
+    if (!REGISTRY_META[view]) return;
+    discardEmptyEntries();
+    discardEmptyRegistryRows();
+    activeView = view;
+    save();
+    render();
+    scrollToWorkspace();
+  }
+
+  function openHome() {
+    discardEmptyEntries();
+    discardEmptyRegistryRows();
+    activeView = "home";
+    save();
+    render();
+    window.scrollTo({ top: 0 });
+  }
+
+  function createEmptyActionRow() {
+    return createEmptyRegistryRow(ACTION_COLUMNS);
+  }
+
+  function createEmptyRegistryRow(columns) {
+    return columns.reduce((row, column) => {
+      row[column.key] = "";
+      return row;
+    }, {});
+  }
+
+  function readStoredRows(key) {
+    try {
+      const rows = JSON.parse(localStorage.getItem(key) || "[]");
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function normalizeRegistryRows(rows, columns) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row) => columns.reduce((normalized, column) => {
+      normalized[column.key] = row?.[column.key] ?? "";
+      return normalized;
+    }, {})).filter(hasPrintableValue);
+  }
+
+  function mergeRegistryRows(storedRows, importedRows, columns) {
+    const seen = new Set();
+    return normalizeRegistryRows([...storedRows, ...importedRows], columns).filter((row) => {
+      const fingerprint = JSON.stringify(row);
+      if (seen.has(fingerprint)) return false;
+      seen.add(fingerprint);
+      return true;
+    });
+  }
+
+  function normalizeEntry(entry) {
+    const normalized = {
+      ...entry,
+      fields: entry?.fields && typeof entry.fields === "object" ? entry.fields : {},
+      rationalization: entry?.rationalization && typeof entry.rationalization === "object" ? entry.rationalization : {},
+      notes: entry?.notes || ""
+    };
+    if (normalized.type === "scenario") {
+      if (!Array.isArray(normalized.fields.steps)) normalized.fields.steps = [""];
+      if (!Array.isArray(normalized.fields.noDoActions)) normalized.fields.noDoActions = [""];
+      normalized.report = createDefaultReport(normalized.report);
+      normalized.reportEnabled = Boolean(normalized.reportEnabled || hasMeaningfulValue(normalized.report));
+      return normalized;
+    }
+    if (normalized.type === "report") {
+      if (!Array.isArray(normalized.fields.actualEvents)) normalized.fields.actualEvents = [""];
+      return normalized;
+    }
+    if (normalized.type !== "actions") return normalized;
+    if (Array.isArray(normalized.fields.actionRows) && normalized.fields.actionRows.length) return normalized;
+
+    const legacyFeelings = hasPrintableValue(normalized.fields.feelingsText)
+      ? String(normalized.fields.feelingsText)
+      : printValue(normalized.fields.feelings || []);
+    const feelingsAndSelf = [
+      legacyFeelings,
+      normalized.fields.selfDefinition ? `Каким буду: ${normalized.fields.selfDefinition}` : ""
+    ].filter(Boolean).join("\n");
+    normalized.fields.actionRows = [{
+      situation: normalized.fields.situation || "",
+      feelingsAndSelf,
+      protectiveAction: normalized.fields.protectiveAction || "",
+      avoidantAction: normalized.fields.avoidantAction || "",
+      adaptiveBehavior: normalized.fields.adaptiveBehavior || ""
+    }];
+    return normalized;
+  }
+
+  function migrateLegacyReports(sourceEntries, storedActiveId = "") {
+    const reports = sourceEntries.filter((entry) => entry.type === "report");
+    if (!reports.length) {
+      return { entries: sourceEntries, activeId: storedActiveId, changed: false };
+    }
+
+    const migrated = sourceEntries.filter((entry) => entry.type !== "report");
+    const scenarios = new Map(migrated.filter((entry) => entry.type === "scenario").map((entry) => [entry.id, entry]));
+    const occupiedScenarios = new Set(
+      migrated
+        .filter((entry) => entry.type === "scenario" && (entry.reportEnabled || hasMeaningfulValue(entry.report)))
+        .map((entry) => entry.id)
+    );
+    let nextActiveId = storedActiveId;
+
+    reports.forEach((legacyReport) => {
+      const linkedScenario = scenarios.get(legacyReport.fields.linkedScenarioId);
+      const report = createDefaultReport({
+        ...legacyReport.fields,
+        reportDate: legacyReport.fields.reportDate || legacyReport.date || "",
+        notes: legacyReport.notes || legacyReport.fields.notes || ""
+      });
+
+      if (linkedScenario && !occupiedScenarios.has(linkedScenario.id)) {
+        linkedScenario.report = report;
+        linkedScenario.reportEnabled = true;
+        linkedScenario.updatedAt = [linkedScenario.updatedAt, legacyReport.updatedAt].filter(Boolean).sort().at(-1) || new Date().toISOString();
+        occupiedScenarios.add(linkedScenario.id);
+        if (nextActiveId === legacyReport.id) nextActiveId = linkedScenario.id;
+        return;
+      }
+
+      const subject = String(legacyReport.title || "").replace(/^Отч[её]т:\s*/i, "").trim();
+      const scenario = normalizeEntry({
+        ...legacyReport,
+        id: legacyReport.id || createId(),
+        type: "scenario",
+        title: subject ? `Сценарий: ${subject}` : "Сценарий с отчётом",
+        fields: { steps: [""], noDoActions: [""] },
+        report,
+        reportEnabled: true,
+        notes: "",
+        rationalization: {},
+        rationalizationEnabled: false
+      });
+      migrated.push(scenario);
+      scenarios.set(scenario.id, scenario);
+    });
+
+    return { entries: migrated, activeId: nextActiveId, changed: true };
+  }
+
+  function duplicateActive() {
+    if (activeView !== "entry") return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+    if (!shouldPersistEntry(entry)) {
+      showToast("Пустую запись дублировать не нужно");
+      return;
+    }
+    const now = new Date().toISOString();
+    const copy = JSON.parse(JSON.stringify(entry));
+    copy.id = createId();
+    copy.title = `${entry.title || TYPE_META[entry.type].defaultTitle} - копия`;
+    copy.createdAt = now;
+    copy.updatedAt = now;
+    entries.unshift(copy);
+    activeId = copy.id;
+    save();
+    render();
+    showToast("Копия создана");
+  }
+
+  function deleteActive() {
+    if (activeView !== "entry") return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+    elements.deleteDialogRecord.textContent = entry.title || TYPE_META[entry.type].defaultTitle;
+    elements.deleteDialog.dataset.entryId = entry.id;
+    elements.deleteDialog.returnValue = "";
+    elements.deleteDialog.showModal();
+  }
+
+  function handleDeleteDialogClose() {
+    const entryId = elements.deleteDialog.dataset.entryId || "";
+    delete elements.deleteDialog.dataset.entryId;
+    if (elements.deleteDialog.returnValue !== "confirm" || !entryId) return;
+    if (!entries.some((entry) => entry.id === entryId)) return;
+    entries = entries.filter((entry) => entry.id !== entryId);
+    entries = entries.filter(shouldPersistEntry);
+    const remainingEntries = getPersistedEntries();
+    activeId = remainingEntries[0]?.id || "";
+    if (remainingEntries.length === 0) activeView = "home";
+    save();
+    render();
+    showToast("Запись удалена");
+  }
+
+  function render() {
+    renderNavigation();
+    renderList();
+    renderEditor();
+    renderBackupStatus();
+  }
+
+  function showStorageIntroIfNeeded() {
+    if (localStorage.getItem(STORAGE_INTRO_SEEN_KEY) === "1") return;
+    elements.storageIntroDialog.showModal();
+  }
+
+  function handleStorageIntroClose() {
+    localStorage.setItem(STORAGE_INTRO_SEEN_KEY, "1");
+  }
+
+  function renderNavigation() {
+    ["actions", "triggers"].forEach((view) => {
+      const button = root.getElementById(`${view}PageButton`);
+      const isActive = activeView === view;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+  }
+
+  function renderHome() {
+    const recent = getPersistedEntries()
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 4);
+    elements.homeRecent.classList.toggle("hidden", recent.length === 0);
+    elements.homeRecentList.innerHTML = recent.map((entry) => {
+      const title = entry.title || TYPE_META[entry.type].defaultTitle;
+      const meta = [TYPE_META[entry.type].label, formatDate(entry.date)].filter(Boolean).join(" · ");
+      return `
+        <button class="home-recent-entry" type="button" data-home-entry-id="${escapeAttr(entry.id)}">
+          <span>
+            <strong>${escapeHTML(title)}</strong>
+            <small>${escapeHTML(meta)}</small>
+          </span>
+          <span aria-hidden="true">→</span>
+        </button>
+      `;
+    }).join("");
+  }
+
+  function renderList() {
+    const query = elements.searchInput.value.trim().toLowerCase();
+    const sorted = getPersistedEntries().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    const filtered = query
+      ? sorted.filter((entry) => searchBlob(entry).includes(query))
+      : sorted;
+
+    elements.entryList.innerHTML = filtered.length
+      ? filtered.map(renderEntryCard).join("")
+      : `<p class="hint">${query ? "Ничего не найдено." : "Сохраненных записей пока нет."}</p>`;
+  }
+
+  function renderEntryCard(entry) {
+    const title = entry.title || TYPE_META[entry.type].defaultTitle;
+    const meta = [
+      TYPE_META[entry.type].label,
+      formatDate(entry.date),
+      entry.tags ? entry.tags : ""
+    ].filter(Boolean).join(" · ");
+    const activeClass = activeView === "entry" && entry.id === activeId ? " active" : "";
+    return `
+      <button class="entry-card${activeClass}" type="button" data-entry-id="${escapeAttr(entry.id)}">
+        <span class="entry-title">${escapeHTML(title)}</span>
+        <span class="entry-meta">${escapeHTML(meta)}</span>
+      </button>
+    `;
+  }
+
+  function renderEditor() {
+    const isHome = activeView === "home";
+    host.classList.toggle("home-active", isHome);
+    elements.homeView.classList.toggle("hidden", !isHome);
+    elements.topbar.classList.toggle("hidden", isHome);
+    if (isHome) {
+      elements.editorPanel.classList.add("hidden");
+      elements.emptyState.classList.add("hidden");
+      renderHome();
+      return;
+    }
+
+    const entry = getActiveEntry();
+    const isRegistry = Boolean(REGISTRY_META[activeView]);
+    const hasContent = isRegistry || Boolean(entry);
+    elements.editorPanel.classList.toggle("hidden", !hasContent);
+    elements.emptyState.classList.toggle("hidden", hasContent);
+    elements.topbar.classList.toggle("hidden", !hasContent);
+
+    if (isRegistry) {
+      const meta = REGISTRY_META[activeView];
+      elements.entryTypeLabel.textContent = "Постоянный список";
+      elements.titleField.classList.add("hidden");
+      elements.registryTitle.classList.remove("hidden");
+      elements.registryTitle.textContent = meta.title;
+      elements.entryMetaRow.classList.add("hidden");
+      root.getElementById("duplicateButton").classList.add("hidden");
+      root.getElementById("deleteButton").classList.add("hidden");
+      elements.formRoot.innerHTML = activeView === "actions"
+        ? renderActionsRegistry()
+        : renderTriggersRegistry();
+      return;
+    }
+
+    if (!entry) return;
+
+    elements.entryTypeLabel.textContent = TYPE_META[entry.type].label;
+    elements.titleField.classList.remove("hidden");
+    elements.registryTitle.classList.add("hidden");
+    elements.entryMetaRow.classList.remove("hidden");
+    root.getElementById("duplicateButton").classList.remove("hidden");
+    root.getElementById("deleteButton").classList.remove("hidden");
+    const titleMeta = TYPE_META[entry.type];
+    elements.titleFieldLabel.textContent = titleMeta.titleLabel || "Название записи";
+    elements.titleInput.placeholder = titleMeta.titlePlaceholder || "Введите название";
+    elements.titleInput.value = entry.title === titleMeta.defaultTitle ? "" : (entry.title || "");
+    elements.entryDateLabel.textContent = getEntryDateLabel(entry.type);
+    elements.entryDateInput.value = entry.date || "";
+    elements.tagsInput.value = entry.tags || "";
+    const renderers = {
+      diary: renderDiary,
+      diagnostic: renderDiagnostic,
+      scenario: renderScenario
+    };
+    elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
+  }
+
+  function renderDiagnostic(entry) {
+    const notice = `
+      <div class="notice">
+        <h2>Важно</h2>
+        <ul>
+          <li>Создать одну большую картину или сцену.</li>
+          <li>Придумывать без страха странности.</li>
+          <li>Почувствовать эмоции и чувства, не включать рациональное мышление.</li>
+        </ul>
+      </div>
+    `;
+    return notice + DIAGNOSTIC_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("") + renderNotes(entry);
+  }
+
+  function renderDiary(entry) {
+    const notice = `
+      <div class="notice">
+        <h2>Важно</h2>
+        <ul>
+          <li>Представить момент детально, как картинку или фильм.</li>
+          <li>В пункте 3 не спорить с собой и не включать сознательные мысли.</li>
+          <li>Выделить одну самую неприятную мысль.</li>
+        </ul>
+      </div>
+    `;
+    const diary = DIARY_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
+    return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
+  }
+
+  function renderScenario(entry) {
+    return `
+      <div class="protocol-intro scenario-intro">
+        <div>
+          <p class="protocol-kicker">До экспозиции</p>
+          <h2>Маршрут без импровизации</h2>
+          <p>Опиши наблюдаемые действия заранее: где начинаешь, что говоришь, чего не делаешь и сколько остаёшься в ситуации.</p>
+        </div>
+      </div>
+      <div class="scenario-builder">
+        ${SCENARIO_SECTIONS.map((section) => renderProtocolSection(section, entry, "scenario")).join("")}
+      </div>
+      ${renderScenarioReportBranch(entry)}
+      ${renderNotes(entry)}
+    `;
+  }
+
+  function renderScenarioReportBranch(entry) {
+    const gate = `
+      <section class="scenario-report-gate">
+        <div>
+          <p class="protocol-kicker">После выполнения</p>
+          <h2>Отчёт по сценарию</h2>
+          <p>Раскрой отчёт, когда сценарий выполнен, и зафиксируй факты по свежей памяти.</p>
+        </div>
+        <label class="switch-row report-switch">
+          <input type="checkbox" data-path="reportEnabled" ${entry.reportEnabled ? "checked" : ""}>
+          <span>Сценарий выполнен — заполнить отчёт</span>
+        </label>
+      </section>
+    `;
+
+    if (!entry.reportEnabled) return gate;
+
+    return gate + `
+      <div class="embedded-report">
+        <div class="protocol-intro report-intro">
+          <div>
+            <p class="protocol-kicker">После экспозиции</p>
+            <h2>Факты вместо общей оценки</h2>
+            <p>Восстанови ход событий по эпизодам: действие, чувство, телесная реакция, реальные последствия и следующий шаг.</p>
+          </div>
+        </div>
+        <div class="report-builder">
+          ${REPORT_SECTIONS.map((section) => renderProtocolSection(section, entry, "report", "report")).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProtocolSection(section, entry, variant, rootPath = "fields") {
+    const values = rootPath === "report" ? entry.report : entry.fields;
+    const fields = section.fields.map((field) => renderProtocolField(field, entry, variant, values, rootPath)).join("");
+    const sectionClass = variant === "scenario"
+      ? `protocol-section scenario-phase tone-${section.tone || "coral"}`
+      : "protocol-section report-phase";
+    return `
+      <section class="${sectionClass}" data-protocol-step="${escapeAttr(section.index)}">
+        <div class="protocol-section-header">
+          <span class="protocol-step">${escapeHTML(section.index)}</span>
+          <h2>${escapeHTML(section.title)}</h2>
+        </div>
+        <div class="protocol-fields ${variant === "report" && section.index === "02" ? "feeling-curve-fields" : ""}">
+          ${fields}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderProtocolField(field, entry, variant, values, rootPath) {
+    if (field.kind === "ordered-list" || field.kind === "checklist") {
+      return renderEntryListField(entry, field, values, rootPath);
+    }
+    const className = variant === "report" && field.kind === "range" ? " protocol-rating" : "";
+    return `<div class="protocol-field${className}" data-field-key="${escapeAttr(field.key)}">${renderField(field, values[field.key], `${rootPath}.${field.key}`)}</div>`;
+  }
+
+  function renderEntryListField(entry, field, values, rootPath) {
+    const storedItems = Array.isArray(values[field.key]) ? values[field.key] : [];
+    const items = storedItems.length ? storedItems : [""];
+    const isChecklist = field.kind === "checklist";
+    return `
+      <div class="protocol-field entry-list-field ${isChecklist ? "no-do-list" : "route-list"}" data-field-key="${escapeAttr(field.key)}">
+        <div class="entry-list-heading">
+          <div>
+            <p class="field-label">${escapeHTML(field.label)}</p>
+            ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+          </div>
+          <span>${items.filter(hasPrintableValue).length}</span>
+        </div>
+        <div class="entry-list-items">
+          ${items.map((item, index) => `
+            <div class="entry-list-item">
+              <span class="entry-list-index">${isChecklist ? "не" : index + 1}</span>
+              <textarea rows="${isChecklist ? 2 : 3}" data-path="${escapeAttr(rootPath)}.${escapeAttr(field.key)}.${index}" aria-label="${escapeAttr(field.label)}, строка ${index + 1}" placeholder="${isChecklist ? "Какое действие исключаю?" : (field.key === "actualEvents" ? "Что произошло в этом эпизоде?" : "Что конкретно делаю на этом шаге?")}">${escapeHTML(item || "")}</textarea>
+              <div class="entry-list-controls" aria-label="Управление строкой ${index + 1}">
+                <button class="list-icon-button" type="button" data-move-entry-list="-1" data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить выше" aria-label="Переместить строку ${index + 1} выше" ${index === 0 ? "disabled" : ""}>↑</button>
+                <button class="list-icon-button" type="button" data-move-entry-list="1" data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить ниже" aria-label="Переместить строку ${index + 1} ниже" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
+                <button class="list-icon-button danger" type="button" data-remove-entry-list data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Удалить строку" aria-label="Удалить строку ${index + 1}">×</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+        <button class="button add-entry-list-item" type="button" data-add-entry-list="${escapeAttr(field.key)}" data-list-root="${escapeAttr(rootPath)}">${isChecklist ? "Добавить запрет" : (field.key === "actualEvents" ? "Добавить эпизод" : "Добавить шаг")}</button>
+      </div>
+    `;
+  }
+
+  function renderActionsRegistry() {
+    return renderRegistryTable({
+      view: "actions",
+      heading: "Быстрый разбор действий",
+      hint: "Одна ситуация - одна строка. Список дополняется, а не создаётся заново.",
+      columns: ACTION_COLUMNS,
+      rows: actionRows
+    });
+  }
+
+  function renderTriggersRegistry() {
+    return renderRegistryTable({
+      view: "triggers",
+      heading: "Иерархия триггеров",
+      hint: "Добавляй даже небольшие триггеры и оценивай силу реакции от 0 до 100%.",
+      columns: TRIGGER_COLUMNS,
+      rows: triggerRows
+    });
+  }
+
+  function renderRegistryTable({ view, heading, hint, columns, rows }) {
+    const visibleRows = rows.length ? rows : [createEmptyRegistryRow(columns)];
+    return `
+      <section class="actions-sheet">
+        <div class="actions-sheet-heading">
+          <div>
+            <h2>${escapeHTML(heading)}</h2>
+            <p class="hint">${escapeHTML(hint)}</p>
+          </div>
+          <span class="action-row-count">Строк: ${rows.length}</span>
+        </div>
+        <div class="actions-table registry-table registry-table-${escapeAttr(view)}" role="table" aria-label="${escapeAttr(REGISTRY_META[view].title)}">
+          <div class="actions-table-head" role="row">
+            ${columns.map((column) => `<div role="columnheader">${escapeHTML(column.label)}</div>`).join("")}
+            <span aria-hidden="true"></span>
+          </div>
+          <div class="actions-table-body">
+            ${visibleRows.map((row, index) => renderRegistryRow(view, columns, row, index)).join("")}
+          </div>
+        </div>
+        <button class="button add-action-row" type="button" data-add-registry-row="${escapeAttr(view)}">Добавить строку</button>
+      </section>
+    `;
+  }
+
+  function renderRegistryRow(view, columns, row, index) {
+    return `
+      <div class="action-table-row" role="row">
+        ${columns.map((column) => `
+          <label class="action-table-cell" role="cell">
+            <span class="action-cell-label">${escapeHTML(column.label)}</span>
+            ${column.kind === "percent" ? `
+              <span class="percent-input">
+                <input type="number" min="0" max="100" inputmode="numeric" data-registry="${escapeAttr(view)}" data-row-index="${index}" data-key="${escapeAttr(column.key)}" value="${escapeAttr(row?.[column.key] ?? "")}" placeholder="${escapeAttr(column.placeholder)}" aria-label="${escapeAttr(column.label)}">
+                <span aria-hidden="true">%</span>
+              </span>
+            ` : `
+              <textarea rows="2" data-registry="${escapeAttr(view)}" data-row-index="${index}" data-key="${escapeAttr(column.key)}" placeholder="${escapeAttr(column.placeholder)}">${escapeHTML(row?.[column.key] || "")}</textarea>
+            `}
+          </label>
+        `).join("")}
+        <button class="icon-button remove-action-row" type="button" data-remove-registry-row="${index}" data-registry="${escapeAttr(view)}" title="Удалить строку" aria-label="Удалить строку ${index + 1}">&times;</button>
+      </div>
+    `;
+  }
+
+  function getActionRows(entry) {
+    const rows = entry?.fields?.actionRows;
+    return Array.isArray(rows) && rows.length ? rows : [createEmptyActionRow()];
+  }
+
+  function renderNotes(entry) {
+    return `
+      <section class="section">
+        <div class="section-header">
+          <h2>Заметки</h2>
+          <span class="step-index">после</span>
+        </div>
+        <label class="field">
+          <span>Впечатления и инсайты после заполнения</span>
+          <p class="hint">Что стало понятнее, что хочется запомнить, что обсудить с психологом.</p>
+          <textarea rows="6" data-path="notes">${escapeHTML(entry.notes || "")}</textarea>
+        </label>
+      </section>
+    `;
+  }
+
+  function renderProblemBranch(entry) {
+    const value = entry.fields.realProblemSolved || "";
+    const shouldShowRationalization = entry.rationalizationEnabled || value === "no";
+    const radio = `
+      <section class="section">
+        <div class="section-header">
+          <h2>Переход к рационализации</h2>
+          <span class="step-index">после пункта 6</span>
+        </div>
+        <div class="branch-box">
+          <div>
+            <p class="field-label">Действие из пункта 6 решало реальную проблему?</p>
+            <p class="hint">Если действие главным образом облегчало чувство, рационализация обычно нужна.</p>
+          </div>
+          <div class="radio-grid">
+            ${renderRadio("fields.realProblemSolved", "yes", "Да", value)}
+            ${renderRadio("fields.realProblemSolved", "no", "Нет", value)}
+            ${renderRadio("fields.realProblemSolved", "unclear", "Неясно", value)}
+          </div>
+          <label class="switch-row">
+            <input type="checkbox" data-path="rationalizationEnabled" ${entry.rationalizationEnabled ? "checked" : ""}>
+            <span>Показать рационализацию</span>
+          </label>
+        </div>
+      </section>
+    `;
+
+    if (!shouldShowRationalization) return radio;
+
+    const thought = entry.fields.worstThought || "";
+    const thoughtBox = thought
+      ? `<div class="notice"><h2>Мысль для проверки</h2><p>${escapeHTML(thought)}</p></div>`
+      : "";
+    const rationalization = RATIONALIZATION_SECTIONS
+      .map((section) => renderSection(section, entry.rationalization, "rationalization"))
+      .join("");
+    return radio + thoughtBox + rationalization;
+  }
+
+  function renderSection(section, values, rootPath) {
+    return `
+      <section class="section">
+        <div class="section-header">
+          <h2>${escapeHTML(section.title)}</h2>
+          <span class="step-index">${escapeHTML(section.index)}</span>
+        </div>
+        <div class="field-grid">
+          ${section.fields.map((field) => renderField(field, values[field.key], `${rootPath}.${field.key}`)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderField(field, value = "", path) {
+    if (field.kind === "range") {
+      const numberValue = value === undefined || value === "" || Number.isNaN(Number(value)) ? 50 : Number(value);
+      return `
+        <label class="field">
+          <span>${escapeHTML(field.label)}</span>
+          ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+          <div class="range-row">
+            <input type="range" min="0" max="100" step="1" value="${numberValue}" data-path="${escapeAttr(path)}">
+            <output class="range-value">${numberValue}%</output>
+          </div>
+        </label>
+      `;
+    }
+
+    if (field.kind === "chips") {
+      const current = String(value || "");
+      const chips = field.options.map((option) => `
+        <button class="chip" type="button" data-chip-path="${escapeAttr(path)}" data-chip-value="${escapeAttr(option)}" aria-pressed="${current === option ? "true" : "false"}">
+          ${escapeHTML(option)}
+        </button>
+      `).join("");
+      return `
+        <div class="field">
+          <span>${escapeHTML(field.label)}</span>
+          ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+          <div class="chips" role="group" aria-label="${escapeAttr(field.label)}">${chips}</div>
+          <input type="text" value="${escapeAttr(current)}" data-path="${escapeAttr(path)}" autocomplete="off" aria-label="${escapeAttr(field.label)}: другое значение" placeholder="Другое чувство">
+        </div>
+      `;
+    }
+
+    if (field.kind === "time" || field.kind === "number" || field.kind === "date") {
+      const input = `<input type="${field.kind}" value="${escapeAttr(value ?? "")}" data-path="${escapeAttr(path)}" ${field.min !== undefined ? `min="${escapeAttr(field.min)}"` : ""}>`;
+      return `
+        <label class="field">
+          <span>${escapeHTML(field.label)}</span>
+          ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+          ${field.suffix ? `<span class="suffixed-input">${input}<span>${escapeHTML(field.suffix)}</span></span>` : input}
+        </label>
+      `;
+    }
+
+    return `
+      <label class="field">
+        <span>${escapeHTML(field.label)}</span>
+        ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
+        <textarea rows="${field.rows || 4}" data-path="${escapeAttr(path)}">${escapeHTML(value || "")}</textarea>
+      </label>
+    `;
+  }
+
+  function renderRadio(path, value, label, current) {
+    const id = `${path}-${value}`.replace(/[^a-z0-9_-]/gi, "-");
+    return `
+      <label class="radio-card" for="${escapeAttr(id)}">
+        <input id="${escapeAttr(id)}" type="radio" name="${escapeAttr(path)}" value="${escapeAttr(value)}" data-path="${escapeAttr(path)}" ${current === value ? "checked" : ""}>
+        <span>${escapeHTML(label)}</span>
+      </label>
+    `;
+  }
+
+  function handleEntryListClick(event) {
+    const card = event.target.closest("[data-entry-id]");
+    if (!card) return;
+    discardEmptyRegistryRows();
+    activeView = "entry";
+    activeId = card.dataset.entryId;
+    save();
+    render();
+    scrollToWorkspace();
+  }
+
+  function handleHomeClick(event) {
+    const newEntryButton = event.target.closest("[data-home-entry]");
+    if (newEntryButton) {
+      createEntry(newEntryButton.dataset.homeEntry);
+      return;
+    }
+
+    const registryButton = event.target.closest("[data-home-view]");
+    if (registryButton) {
+      openRegistry(registryButton.dataset.homeView);
+      return;
+    }
+
+    const recentButton = event.target.closest("[data-home-entry-id]");
+    if (!recentButton) return;
+    activeView = "entry";
+    activeId = recentButton.dataset.homeEntryId;
+    save();
+    render();
+    scrollToWorkspace();
+  }
+
+  function scrollToWorkspace() {
+    if (window.matchMedia("(max-width: 980px)").matches) {
+      elements.topbar.scrollIntoView({ block: "start" });
+      return;
+    }
+    window.scrollTo({ top: 0 });
+  }
+
+  function handleFormInput(event) {
+    const registryControl = event.target.closest("[data-registry][data-row-index][data-key]");
+    if (registryControl) {
+      updateRegistryControl(registryControl, false);
+      return;
+    }
+    const control = event.target.closest("[data-path]");
+    if (!control) return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+
+    ensureEntryListForPath(entry, control.dataset.path);
+    ensureActionRows(entry, control.dataset.path);
+    setPath(entry, control.dataset.path, getControlValue(control));
+    if (control.type === "range") {
+      const output = control.parentElement.querySelector("output");
+      if (output) output.textContent = `${control.value}%`;
+    }
+    touchAndSave(entry);
+  }
+
+  function handleFormChange(event) {
+    const registryControl = event.target.closest("[data-registry][data-row-index][data-key]");
+    if (registryControl) {
+      updateRegistryControl(registryControl, true);
+      return;
+    }
+    const control = event.target.closest("[data-path]");
+    if (!control) return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+
+    ensureEntryListForPath(entry, control.dataset.path);
+    ensureActionRows(entry, control.dataset.path);
+    setPath(entry, control.dataset.path, getControlValue(control));
+    touchAndSave(entry);
+
+    if (control.type === "radio" || control.type === "checkbox") {
+      renderEditorPreservingViewport();
+    }
+  }
+
+  function handleFormClick(event) {
+    const addRegistryRow = event.target.closest("[data-add-registry-row]");
+    const removeRegistryRow = event.target.closest("[data-remove-registry-row]");
+    if (addRegistryRow || removeRegistryRow) {
+      const view = addRegistryRow?.dataset.addRegistryRow || removeRegistryRow?.dataset.registry;
+      const rows = getRegistryRows(view);
+      const columns = getRegistryColumns(view);
+      if (!rows || !columns) return;
+      if (addRegistryRow) {
+        rows.push(createEmptyRegistryRow(columns));
+      } else {
+        const index = Number(removeRegistryRow.dataset.removeRegistryRow);
+        if (Number.isInteger(index) && index >= 0 && index < rows.length) {
+          rows.splice(index, 1);
+        }
+      }
+      save();
+      renderEditorPreservingViewport();
+      return;
+    }
+
+    const addEntryList = event.target.closest("[data-add-entry-list]");
+    const removeEntryList = event.target.closest("[data-remove-entry-list]");
+    const moveEntryList = event.target.closest("[data-move-entry-list]");
+    if (addEntryList || removeEntryList || moveEntryList) {
+      const entry = getActiveEntry();
+      if (!entry) return;
+      const control = addEntryList || removeEntryList || moveEntryList;
+      const key = addEntryList?.dataset.addEntryList || control.dataset.listKey;
+      const root = control.dataset.listRoot || "fields";
+      if (!isEntryListKey(entry.type, root, key)) return;
+      const values = root === "report" ? entry.report : entry.fields;
+      if (!Array.isArray(values[key])) values[key] = [];
+      const items = values[key];
+      if (addEntryList) {
+        items.push("");
+      } else {
+        const index = Number(control.dataset.listIndex);
+        if (!Number.isInteger(index) || index < 0 || index >= items.length) return;
+        if (removeEntryList) {
+          items.splice(index, 1);
+        } else {
+          const targetIndex = index + Number(moveEntryList.dataset.moveEntryList);
+          if (targetIndex < 0 || targetIndex >= items.length) return;
+          [items[index], items[targetIndex]] = [items[targetIndex], items[index]];
+        }
+      }
+      touchAndSave(entry);
+      renderEditorPreservingViewport();
+      return;
+    }
+
+    const chip = event.target.closest("[data-chip-path]");
+    if (!chip) return;
+    const entry = getActiveEntry();
+    if (!entry) return;
+    setPath(entry, chip.dataset.chipPath, chip.dataset.chipValue);
+    touchAndSave(entry);
+    renderEditor();
+  }
+
+  function ensureEntryListForPath(entry, path) {
+    const match = String(path || "").match(/^(fields|report)\.(steps|noDoActions|actualEvents)\.(\d+)$/);
+    if (!match || !isEntryListKey(entry.type, match[1], match[2])) return;
+    const root = match[1];
+    const key = match[2];
+    const index = Number(match[3]);
+    const values = root === "report" ? entry.report : entry.fields;
+    if (!Array.isArray(values[key])) values[key] = [];
+    while (values[key].length <= index) values[key].push("");
+  }
+
+  function isEntryListKey(type, root, key) {
+    if (type !== "scenario") return false;
+    if (root === "fields") return key === "steps" || key === "noDoActions";
+    return root === "report" && key === "actualEvents";
+  }
+
+  function updateRegistryControl(control, clampPercent) {
+    const view = control.dataset.registry;
+    const rows = getRegistryRows(view);
+    const columns = getRegistryColumns(view);
+    const index = Number(control.dataset.rowIndex);
+    const key = control.dataset.key;
+    if (!rows || !columns || !Number.isInteger(index) || !columns.some((column) => column.key === key)) return;
+    while (rows.length <= index) rows.push(createEmptyRegistryRow(columns));
+    let value = control.value;
+    if (clampPercent && columns.find((column) => column.key === key)?.kind === "percent" && value !== "") {
+      value = Math.max(0, Math.min(100, Number(value) || 0));
+      control.value = String(value);
+    }
+    rows[index][key] = value;
+    save();
+    const count = elements.formRoot.querySelector(".action-row-count");
+    if (count) count.textContent = `Строк: ${rows.length}`;
+  }
+
+  function getRegistryRows(view) {
+    if (view === "actions") return actionRows;
+    if (view === "triggers") return triggerRows;
+    return null;
+  }
+
+  function getRegistryColumns(view) {
+    if (view === "actions") return ACTION_COLUMNS;
+    if (view === "triggers") return TRIGGER_COLUMNS;
+    return null;
+  }
+
+  function ensureActionRows(entry, path) {
+    if (!String(path || "").startsWith("fields.actionRows.")) return;
+    if (!entry.fields || typeof entry.fields !== "object") entry.fields = {};
+    if (!Array.isArray(entry.fields.actionRows)) {
+      entry.fields.actionRows = [createEmptyActionRow()];
+    }
+    const match = String(path).match(/^fields\.actionRows\.(\d+)\./);
+    const index = match ? Number(match[1]) : 0;
+    while (entry.fields.actionRows.length <= index) {
+      entry.fields.actionRows.push(createEmptyActionRow());
+    }
+  }
+
+  function renderEditorPreservingViewport() {
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    renderEditor();
+    window.scrollTo(scrollX, scrollY);
+    window.requestAnimationFrame(() => {
+      window.scrollTo(scrollX, scrollY);
+    });
+  }
+
+  function getControlValue(control) {
+    if (control.type === "checkbox") return control.checked;
+    if (control.type === "range") return Number(control.value);
+    return control.value;
+  }
+
+  function setPath(target, path, value) {
+    const parts = path.split(".");
+    let current = target;
+    for (let index = 0; index < parts.length - 1; index += 1) {
+      const part = parts[index];
+      if (typeof current[part] !== "object" || current[part] === null) {
+        current[part] = {};
+      }
+      current = current[part];
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+
+  function touchAndSave(entry) {
+    entry.updatedAt = new Date().toISOString();
+    save();
+    scheduleListRender();
+  }
+
+  function scheduleListRender() {
+    window.clearTimeout(listRenderTimer);
+    listRenderTimer = window.setTimeout(renderList, 180);
+  }
+
+  function copyActive() {
+    if (REGISTRY_META[activeView]) {
+      if (!getPersistedRegistryRows(getRegistryRows(activeView)).length) {
+        showToast("Список пока пуст");
+        return;
+      }
+      copyText(formatRegistryMarkdown(activeView))
+        .then(() => showToast("Список скопирован"))
+        .catch(() => showToast("Не удалось скопировать"));
+      return;
+    }
+    const entry = getActiveEntry();
+    if (!entry) return;
+    const text = formatEntryMarkdown(entry);
+    copyText(text)
+      .then(() => showToast("Запись скопирована"))
+      .catch(() => showToast("Не удалось скопировать"));
+  }
+
+  function downloadActiveMarkdown() {
+    if (REGISTRY_META[activeView]) {
+      if (!getPersistedRegistryRows(getRegistryRows(activeView)).length) {
+        showToast("Список пока пуст");
+        return;
+      }
+      downloadBlob(
+        formatRegistryMarkdown(activeView),
+        `${formatRegistryExportBaseName(activeView)}.md`,
+        "text/markdown;charset=utf-8"
+      );
+      return;
+    }
+    const entry = getActiveEntry();
+    if (!entry) return;
+    const fileName = `${formatExportBaseName(entry)}.md`;
+    downloadBlob(formatEntryMarkdown(entry), fileName, "text/markdown;charset=utf-8");
+  }
+
+  function printActive() {
+    if (REGISTRY_META[activeView]) {
+      if (!getPersistedRegistryRows(getRegistryRows(activeView)).length) {
+        showToast("Сначала добавь хотя бы одну строку");
+        return;
+      }
+      elements.printRoot.innerHTML = renderPrintRegistry(activeView);
+      startPrint(formatRegistryExportBaseName(activeView));
+      return;
+    }
+    const entry = getActiveEntry();
+    if (!entry) return;
+    if (!shouldPersistEntry(entry)) {
+      showToast("Сначала заполни хотя бы одно поле");
+      return;
+    }
+    elements.printRoot.innerHTML = renderPrintEntry(entry);
+    startPrint(formatExportBaseName(entry));
+  }
+
+  function startPrint(title) {
+    host.classList.add("printing");
+    document.body.classList.add("psychological-practices-printing");
+    prepareTildaPrintHost();
+    host.classList.toggle("mobile-print", window.matchMedia("(max-width: 700px)").matches);
+    titleBeforePrint = document.title;
+    document.title = title;
+    window.clearTimeout(printCleanupTimer);
+    window.setTimeout(() => {
+      window.print();
+      printCleanupTimer = window.setTimeout(cleanupPrint, 120000);
+    }, 60);
+  }
+
+  function cleanupPrint() {
+    window.clearTimeout(printCleanupTimer);
+    host.classList.remove("printing", "mobile-print");
+    document.body.classList.remove("psychological-practices-printing");
+    restoreTildaPrintHost();
+    elements.printRoot.innerHTML = "";
+    if (titleBeforePrint) {
+      document.title = titleBeforePrint;
+      titleBeforePrint = "";
+    }
+  }
+
+  function downloadBackup() {
+    const snapshot = createBackupSnapshot();
+    const exportedAt = new Date().toISOString();
+    const payload = {
+      version: 2,
+      exportedAt,
+      ...snapshot
+    };
+    const date = toDateInputValue(new Date());
+    downloadBlob(JSON.stringify(payload, null, 2), `Практики_резервная_копия_${date}.json`, "application/json;charset=utf-8");
+    localStorage.setItem(LAST_BACKUP_ENTRY_IDS_KEY, JSON.stringify(snapshot.entries.map((entry) => entry.id)));
+    renderBackupStatus();
+  }
+
+  function createBackupSnapshot() {
+    return {
+      entries: getPersistedEntries(),
+      actionRows: getPersistedRegistryRows(actionRows),
+      triggerRows: getPersistedRegistryRows(triggerRows)
+    };
+  }
+
+  function renderBackupStatus() {
+    if (!elements.backupStatus) return;
+    const snapshot = createBackupSnapshot();
+    const backedUpIds = readLastBackupEntryIds();
+    const newEntryCount = snapshot.entries.filter((entry) => !backedUpIds.has(entry.id)).length;
+    const shouldShowReminder = newEntryCount >= 3;
+    elements.backupStatus.classList.toggle("hidden", !shouldShowReminder);
+    if (!shouldShowReminder) return;
+
+    elements.backupStatus.dataset.state = "attention";
+    elements.backupStatusTitle.textContent = "Добавлено 3 новых записи";
+    elements.backupStatusDetail.textContent = "Лучше сохранить резервную копию.";
+  }
+
+  function readLastBackupEntryIds() {
+    try {
+      const ids = JSON.parse(localStorage.getItem(LAST_BACKUP_ENTRY_IDS_KEY) || "[]");
+      return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function importBackup(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || ""));
+        const importedEntries = Array.isArray(parsed) ? parsed : (parsed.entries || []);
+        const importedActionRows = Array.isArray(parsed?.actionRows) ? parsed.actionRows : [];
+        const importedTriggerRows = Array.isArray(parsed?.triggerRows) ? parsed.triggerRows : [];
+        if (!Array.isArray(importedEntries)) throw new Error("Invalid entries");
+        if (!importedEntries.length && !importedActionRows.length && !importedTriggerRows.length) {
+          throw new Error("No data");
+        }
+        const usedIds = new Set(entries.map((entry) => entry.id));
+        const importedIdMap = new Map();
+        const normalized = importedEntries.map((entry) => {
+          const originalId = entry.id || "";
+          let nextId = originalId || createId();
+          if (usedIds.has(nextId)) nextId = createId();
+          usedIds.add(nextId);
+          if (originalId) importedIdMap.set(originalId, nextId);
+          return normalizeEntry({
+            ...entry,
+            id: nextId,
+            fields: entry.fields || {},
+            rationalization: entry.rationalization || {},
+            notes: entry.notes || ""
+          });
+        });
+        normalized.forEach((entry) => {
+          if (entry.type !== "report") return;
+          const linkedId = entry.fields.linkedScenarioId;
+          if (importedIdMap.has(linkedId)) entry.fields.linkedScenarioId = importedIdMap.get(linkedId);
+        });
+        const migratedImport = migrateLegacyReports(normalized, normalized[0]?.id || "");
+        const migratedEntries = migratedImport.entries;
+        const legacyActionRows = migratedEntries
+          .filter((entry) => entry.type === "actions")
+          .flatMap((entry) => entry.fields.actionRows || []);
+        const persistedImported = migratedEntries
+          .filter((entry) => entry.type !== "actions")
+          .filter(shouldPersistEntry);
+        entries = [...persistedImported, ...entries].filter(shouldPersistEntry);
+        actionRows = mergeRegistryRows(actionRows, [...importedActionRows, ...legacyActionRows], ACTION_COLUMNS);
+        triggerRows = mergeRegistryRows(triggerRows, importedTriggerRows, TRIGGER_COLUMNS);
+        activeId = migratedImport.activeId || persistedImported[0]?.id || entries[0]?.id || "";
+        save();
+        render();
+        showToast("Импорт завершен");
+      } catch {
+        showToast("Не удалось импортировать JSON");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function formatEntryMarkdown(entry) {
+    const lines = [];
+    lines.push(`# ${entry.title || TYPE_META[entry.type].defaultTitle}`);
+    lines.push("");
+    lines.push(`Тип: ${TYPE_META[entry.type].label}`);
+    if (entry.date) lines.push(`${getEntryDateLabel(entry.type)}: ${formatDate(entry.date)}`);
+    if (entry.tags) lines.push(`Теги: ${entry.tags}`);
+    lines.push("");
+
+    if (entry.type === "actions") {
+      appendActionRowsMarkdown(lines, getActionRows(entry));
+    } else {
+      appendSectionsMarkdown(lines, getSectionsForEntry(entry), entry.fields, entry);
+    }
+
+    if (entry.type === "diary") {
+      const decision = entry.fields.realProblemSolved;
+      if (decision) {
+        lines.push("## Переход к рационализации");
+        lines.push("");
+        lines.push(`Действие решало реальную проблему: ${decisionLabel(decision)}`);
+        lines.push("");
+      }
+      if (entry.rationalizationEnabled || decision === "no") {
+        appendSectionsMarkdown(lines, RATIONALIZATION_SECTIONS, entry.rationalization, entry);
+      }
+    }
+    if (entry.type === "scenario" && shouldIncludeScenarioReport(entry)) {
+      lines.push("# Отчёт по сценарию");
+      lines.push("");
+      appendSectionsMarkdown(lines, REPORT_SECTIONS, entry.report, entry);
+    }
+    appendNotesMarkdown(lines, entry);
+
+    return lines.join("\n").trim() + "\n";
+  }
+
+  function formatRegistryMarkdown(view) {
+    const meta = REGISTRY_META[view];
+    const columns = getRegistryColumns(view);
+    const rows = getPersistedRegistryRows(getRegistryRows(view));
+    const lines = [
+      `# ${meta.title}`,
+      "",
+      `Дата экспорта: ${formatDate(toDateInputValue(new Date()))}`,
+      "",
+      `| № | ${columns.map((column) => formatMarkdownTableCell(column.label)).join(" | ")} |`,
+      `| --- | ${columns.map(() => "---").join(" | ")} |`
+    ];
+    rows.forEach((row, index) => {
+      const cells = columns.map((column) => formatMarkdownTableCell(formatRegistryValue(column, row[column.key])));
+      lines.push(`| ${index + 1} | ${cells.join(" | ")} |`);
+    });
+    return lines.join("\n").trim() + "\n";
+  }
+
+  function formatMarkdownTableCell(value) {
+    return String(value ?? "-")
+      .replace(/\|/g, "\\|")
+      .replace(/\r?\n/g, "<br>");
+  }
+
+  function formatRegistryValue(column, value) {
+    if (!hasPrintableValue(value)) return "-";
+    if (column.kind === "percent") return `${value}%`;
+    return String(value);
+  }
+
+  function appendSectionsMarkdown(lines, sections, values, entry) {
+    sections.forEach((section) => {
+      lines.push(`## ${section.index}. ${section.title}`);
+      lines.push("");
+      section.fields.forEach((field) => {
+        const value = values[field.key];
+        lines.push(`**${field.label}**`);
+        lines.push("");
+        lines.push(formatEntryFieldValue(entry, field, value));
+        lines.push("");
+      });
+    });
+  }
+
+  function formatEntryFieldValue(entry, field, value) {
+    if (!hasPrintableValue(value)) return "-";
+    if (field.kind === "date") return formatDate(value);
+    if (field.kind === "scenario-select") {
+      const scenario = entries.find((item) => item.id === value && item.type === "scenario");
+      return scenario?.title || "Связанный сценарий не найден";
+    }
+    if (field.kind === "ordered-list") {
+      return value.filter(hasPrintableValue).map((item, index) => `${index + 1}. ${item}`).join("\n");
+    }
+    if (field.kind === "checklist") {
+      return value.filter(hasPrintableValue).map((item) => `- ${item}`).join("\n");
+    }
+    if (field.suffix) return `${value} ${field.suffix}`;
+    return printValue(value);
+  }
+
+  function appendNotesMarkdown(lines, entry) {
+    if (!hasPrintableValue(entry.notes)) return;
+    lines.push("## Заметки");
+    lines.push("");
+    lines.push("**Впечатления и инсайты после заполнения**");
+    lines.push("");
+    lines.push(String(entry.notes));
+    lines.push("");
+  }
+
+  function appendActionRowsMarkdown(lines, rows) {
+    rows.filter(hasPrintableValue).forEach((row, index) => {
+      lines.push(`## Строка ${index + 1}`);
+      lines.push("");
+      ACTION_COLUMNS.forEach((column) => {
+        lines.push(`**${column.label}**`);
+        lines.push("");
+        lines.push(hasPrintableValue(row[column.key]) ? String(row[column.key]) : "-");
+        lines.push("");
+      });
+    });
+  }
+
+  function getSectionsForEntry(entry) {
+    if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
+    if (entry.type === "scenario") return SCENARIO_SECTIONS;
+    if (entry.type === "report") return REPORT_SECTIONS;
+    return DIARY_SECTIONS;
+  }
+
+  function renderPrintRegistry(view) {
+    const meta = REGISTRY_META[view];
+    const rows = getPersistedRegistryRows(getRegistryRows(view));
+    const columns = getRegistryColumns(view);
+    return `
+      <article class="print-entry print-registry print-registry-${escapeAttr(view)}">
+        <header class="print-cover">
+          <div class="print-cover-top">
+            <span class="print-kicker">Психологические практики</span>
+            <span class="print-type">${escapeHTML(meta.label)}</span>
+          </div>
+          <h1>${escapeHTML(meta.title)}</h1>
+          <div class="print-meta">
+            <div class="print-meta-item">
+              <span>Тип</span>
+              <strong>Постоянный список</strong>
+            </div>
+            <div class="print-meta-item">
+              <span>Строк</span>
+              <strong>${rows.length}</strong>
+            </div>
+            <div class="print-meta-item">
+              <span>Экспорт</span>
+              <strong>${escapeHTML(formatDate(toDateInputValue(new Date())))}</strong>
+            </div>
+          </div>
+        </header>
+        <p class="print-note">Пустые строки не включены. Порядок строк сохранён.</p>
+        ${renderPrintRegistryTable(rows, columns, view)}
+      </article>
+    `;
+  }
+
+  function renderPrintEntry(entry) {
+    const body = entry.type === "actions"
+      ? renderPrintActionRows(getActionRows(entry))
+      : renderPrintSections(getSectionsForEntry(entry), entry.fields, entry);
+    const rationalization = entry.type === "diary" && (entry.rationalizationEnabled || entry.fields.realProblemSolved === "no")
+      ? renderPrintSections(RATIONALIZATION_SECTIONS, entry.rationalization, entry)
+      : "";
+    const report = entry.type === "scenario" && shouldIncludeScenarioReport(entry)
+      ? `
+        <section class="print-report-divider">
+          <span>После выполнения</span>
+          <h2>Отчёт по сценарию</h2>
+        </section>
+        ${renderPrintSections(REPORT_SECTIONS, entry.report, entry)}
+      `
+      : "";
+    const notes = renderPrintNotes(entry);
+    const decision = entry.type === "diary" && entry.fields.realProblemSolved
+      ? `
+        <section class="print-section print-decision">
+          <div class="print-section-header">
+            <h2>Переход к рационализации</h2>
+            <span class="print-step">после пункта 6</span>
+          </div>
+          <div class="print-field">
+            <div class="print-field-label">Действие решало реальную проблему?</div>
+            <div class="print-field-value">${escapeHTML(decisionLabel(entry.fields.realProblemSolved))}</div>
+          </div>
+        </section>
+      `
+      : "";
+    const tags = String(entry.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean);
+    return `
+      <article class="print-entry">
+        <header class="print-cover">
+          <div class="print-cover-top">
+            <span class="print-kicker">Психологические практики</span>
+            <span class="print-type">${escapeHTML(TYPE_META[entry.type].label)}</span>
+          </div>
+          <h1>${escapeHTML(entry.title || TYPE_META[entry.type].defaultTitle)}</h1>
+          <div class="print-meta">
+            <div class="print-meta-item">
+              <span>Тип</span>
+              <strong>${escapeHTML(TYPE_META[entry.type].label)}</strong>
+            </div>
+            ${entry.date ? `
+              <div class="print-meta-item">
+                <span>${escapeHTML(getEntryDateLabel(entry.type))}</span>
+                <strong>${escapeHTML(formatDate(entry.date))}</strong>
+              </div>
+            ` : ""}
+            <div class="print-meta-item">
+              <span>Экспорт</span>
+              <strong>${escapeHTML(formatDate(toDateInputValue(new Date())))}</strong>
+            </div>
+          </div>
+          ${tags.length ? `<div class="print-tags">${tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("")}</div>` : ""}
+        </header>
+        ${body}
+        ${decision}
+        ${rationalization}
+        ${report}
+        ${notes}
+      </article>
+    `;
+  }
+
+  function renderPrintNotes(entry) {
+    if (!hasPrintableValue(entry.notes)) return "";
+    return `
+      <section class="print-section">
+        <div class="print-section-header">
+          <h2>Заметки</h2>
+          <span class="print-step">после</span>
+        </div>
+        <div class="print-field">
+          <div class="print-field-label">Впечатления и инсайты после заполнения</div>
+          <div class="print-field-value">${escapeHTML(printValue(entry.notes))}</div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderPrintSections(sections, values, entry) {
+    return sections.map((section) => {
+      const fields = section.fields
+        .map((field) => ({ field, value: values[field.key] }))
+        .filter(({ value }) => hasPrintableValue(value));
+
+      if (fields.length === 0) return "";
+
+      return `
+        <section class="print-section">
+          <div class="print-section-header">
+            <h2>${escapeHTML(section.title)}</h2>
+            <span class="print-step">${escapeHTML(section.index)}</span>
+          </div>
+          <div class="print-fields">
+            ${fields.map(({ field, value }) => `
+              <div class="print-field">
+                <div class="print-field-label">${escapeHTML(field.label)}</div>
+                <div class="print-field-value">${escapeHTML(formatEntryFieldValue(entry, field, value))}</div>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `;
+    }).join("");
+  }
+
+  function renderPrintActionRows(rows) {
+    return renderPrintRegistryTable(rows, ACTION_COLUMNS, "actions");
+  }
+
+  function renderPrintRegistryTable(rows, columns, view) {
+    const printableRows = rows.filter(hasPrintableValue);
+    return `
+      <table class="print-registry-table print-registry-table-${escapeAttr(view)}">
+        <thead>
+          <tr>
+            <th scope="col" class="print-table-number">№</th>
+            ${columns.map((column) => `<th scope="col">${escapeHTML(column.label)}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${printableRows.map((row, index) => `
+            <tr>
+              <th scope="row" class="print-table-number">${index + 1}</th>
+              ${columns.map((column) => `<td data-label="${escapeAttr(column.label)}">${escapeHTML(formatRegistryValue(column, row[column.key]))}</td>`).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function printValue(value) {
+    if (Array.isArray(value)) {
+      return value
+        .filter(hasPrintableValue)
+        .map((item) => {
+          if (item && typeof item === "object" && ("name" in item || "intensity" in item)) {
+            const name = String(item.name || "Чувство без названия").trim();
+            const hasIntensity = item.intensity !== null && item.intensity !== undefined && item.intensity !== "" && Number.isFinite(Number(item.intensity));
+            const intensity = hasIntensity ? ` - ${Number(item.intensity)}%` : "";
+            return `${name}${intensity}`;
+          }
+          return printValue(item);
+        })
+        .join("\n");
+    }
+    if (typeof value === "number") return `${value}%`;
+    if (typeof value === "boolean") return value ? "да" : "нет";
+    return String(value);
+  }
+
+  function hasPrintableValue(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value === "boolean") return value;
+    if (Array.isArray(value)) return value.some(hasPrintableValue);
+    if (typeof value === "object") return Object.values(value).some(hasPrintableValue);
+    return false;
+  }
+
+  function decisionLabel(value) {
+    const labels = {
+      yes: "да",
+      no: "нет",
+      unclear: "неясно"
+    };
+    return labels[value] || value;
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+
+  function downloadBlob(content, fileName, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function getActiveEntry() {
+    return entries.find((entry) => entry.id === activeId) || null;
+  }
+
+  function searchBlob(entry) {
+    return [
+      entry.title,
+      entry.date,
+      entry.tags,
+      TYPE_META[entry.type].label,
+      entry.notes,
+      ...Object.values(entry.fields || {}),
+      ...Object.values(entry.rationalization || {}),
+      ...Object.values(entry.report || {})
+    ].map(searchValue).join(" ").toLowerCase();
+  }
+
+  function searchValue(value) {
+    if (value === null || value === undefined) return "";
+    if (Array.isArray(value)) return value.map(searchValue).join(" ");
+    if (typeof value === "object") return Object.values(value).map(searchValue).join(" ");
+    return String(value);
+  }
+
+  function getPersistedEntries() {
+    return entries
+      .filter((entry) => ["diary", "diagnostic", "scenario"].includes(entry.type))
+      .filter(shouldPersistEntry);
+  }
+
+  function getPersistedRegistryRows(rows) {
+    return Array.isArray(rows) ? rows.filter(hasMeaningfulValue) : [];
+  }
+
+  function shouldPersistEntry(entry) {
+    if (!entry) return false;
+    const defaultTitle = TYPE_META[entry.type]?.defaultTitle || "";
+    const hasCustomTitle = Boolean(String(entry.title || "").trim()) && entry.title !== defaultTitle;
+    return Boolean(
+      hasCustomTitle ||
+      String(entry.tags || "").trim() ||
+      hasMeaningfulValue(entry.notes) ||
+      hasMeaningfulValue(entry.fields) ||
+      hasMeaningfulValue(entry.rationalization) ||
+      entry.rationalizationEnabled ||
+      hasMeaningfulValue(entry.report)
+    );
+  }
+
+  function shouldIncludeScenarioReport(entry) {
+    return Boolean(entry?.reportEnabled || hasMeaningfulValue(entry?.report));
+  }
+
+  function hasMeaningfulValue(value) {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "string") return value.trim().length > 0;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (typeof value === "boolean") return value;
+    if (Array.isArray(value)) return value.some(hasMeaningfulValue);
+    if (typeof value === "object") return Object.values(value).some(hasMeaningfulValue);
+    return false;
+  }
+
+  function discardEmptyEntries() {
+    const before = entries.length;
+    entries = entries.filter(shouldPersistEntry);
+    if (!entries.some((entry) => entry.id === activeId)) {
+      activeId = entries[0]?.id || "";
+    }
+    if (entries.length !== before) {
+      save();
+    }
+  }
+
+  function discardEmptyRegistryRows() {
+    actionRows = getPersistedRegistryRows(actionRows);
+    triggerRows = getPersistedRegistryRows(triggerRows);
+  }
+
+  function showToast(message) {
+    elements.toast.textContent = message;
+    elements.toast.classList.add("visible");
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      elements.toast.classList.remove("visible");
+    }, 1800);
+  }
+
+  function createId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  function toDateInputValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDate(value) {
+    if (!value) return "";
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(date);
+  }
+
+  function getEntryDateLabel(type) {
+    if (type === "scenario") return "Дата выполнения";
+    if (type === "report") return "Дата отчёта";
+    return "Дата ситуации";
+  }
+
+  function formatExportBaseName(entry) {
+    const type = TYPE_META[entry.type]?.label || "Запись";
+    const date = formatFileDate(entry.date);
+    const name = sanitizeFilePart(entry.tags || entry.title || TYPE_META[entry.type]?.defaultTitle || "");
+    return [type, date, name].filter(Boolean).join("_");
+  }
+
+  function formatRegistryExportBaseName(view) {
+    const meta = REGISTRY_META[view];
+    return `${meta.fileName}_${formatFileDate(toDateInputValue(new Date()))}`;
+  }
+
+  function formatFileDate(value) {
+    const date = value ? new Date(`${value}T00:00:00`) : new Date();
+    if (Number.isNaN(date.getTime())) return sanitizeFilePart(value);
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}_${month}_${year}`;
+  }
+
+  function sanitizeFilePart(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[#]+/g, "")
+      .replace(/[\\/:*?"<>|]+/g, " ")
+      .replace(/[;,]+/g, " ")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function slugify(value) {
+    const fallback = "stress-diary-entry";
+    const slug = String(value)
+      .toLowerCase()
+      .trim()
+      .replace(/ё/g, "e")
+      .replace(/[^a-zа-я0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "");
+    return slug || fallback;
+  }
+
+  function escapeHTML(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function escapeAttr(value) {
+    return escapeHTML(value);
+  }
+})();
+</script>

@@ -11,9 +11,9 @@ const STORAGE = {
 };
 
 (async () => {
-  const embedPath = path.join(__dirname, "tilda-embed.html");
-  const copyPastePath = path.join(__dirname, "TILDA-COPY-PASTE.txt");
-  validateBundleFiles(embedPath, copyPastePath);
+  const variant = process.env.TILDA_VARIANT === "multi" ? "multi" : "compressed";
+  const embedPath = path.join(__dirname, variant === "multi" ? "tilda-multi-embed.html" : "tilda-embed.html");
+  validateBundleFiles(embedPath, variant);
 
   const browser = await chromium.launch({
     headless: true,
@@ -36,8 +36,11 @@ const STORAGE = {
 
   const host = page.locator("#psychological-practices-host");
   await host.locator(".app-shell").waitFor();
-  if (await page.locator("#psychological-practices-loader").count()) {
+  if (variant === "compressed" && await page.locator("#psychological-practices-loader").count()) {
     throw new Error("The compressed Tilda loader remained visible after startup");
+  }
+  if (variant === "multi" && !(await page.evaluate(() => Boolean(window.PsychologicalPracticesDefinition)))) {
+    throw new Error("The readable practice definition was not exposed for inspection");
   }
 
   const storageIntro = host.locator("#storageIntroDialog");
@@ -180,11 +183,13 @@ const STORAGE = {
   }
 
   await testLegacyMigration(page, host);
+  if (variant === "multi") await testReadableBlockGuards(browser);
 
   if (errors.length) throw new Error(errors.join("\n"));
   await browser.close();
 
   console.log(JSON.stringify({
+    variant,
     bundleMatchesCopyPaste: true,
     autonomous: true,
     shadowRoot: true,
@@ -196,38 +201,63 @@ const STORAGE = {
     backup: true,
     printIsolation: true,
     mobile: true,
-    legacyMigration: true
+    legacyMigration: true,
+    readableBlockGuards: variant === "multi"
   }));
 })().catch((error) => {
   console.error(error);
   process.exit(1);
 });
 
-function validateBundleFiles(embedPath, copyPastePath) {
-  if (!fs.existsSync(embedPath) || !fs.existsSync(copyPastePath)) {
+function validateBundleFiles(embedPath, variant) {
+  if (!fs.existsSync(embedPath)) {
     throw new Error("Tilda bundle is missing; run build-tilda-embed.cjs first");
   }
   const embed = fs.readFileSync(embedPath, "utf8");
-  const copyPaste = fs.readFileSync(copyPastePath, "utf8");
-  if (embed !== copyPaste) throw new Error("The copy-paste TXT file does not match tilda-embed.html");
-  if (Buffer.byteLength(embed, "utf8") > 90000) {
-    throw new Error("The copy-paste bundle is too close to Tilda's T123 size limit");
-  }
-  if (!embed.includes("DecompressionStream")) {
-    throw new Error("The Tilda bundle is not compressed");
-  }
-  if (/@import|<script[^>]+src=|<link[^>]+stylesheet/i.test(embed)) {
-    throw new Error("The Tilda bundle still depends on an external script or stylesheet");
-  }
-  if (!/data-version="[a-f0-9]{12}"/.test(embed)) {
-    throw new Error("The Tilda bundle does not have a source version");
-  }
   const sourceFiles = ["index.html", "styles.css", "app.js", "build-tilda-embed.cjs"]
     .map((fileName) => fs.readFileSync(path.join(__dirname, fileName), "utf8"));
   const expectedVersion = crypto.createHash("sha256")
     .update(sourceFiles.join("\n"))
     .digest("hex")
     .slice(0, 12);
+
+  if (variant === "compressed") {
+    const copyPaste = fs.readFileSync(path.join(__dirname, "TILDA-COPY-PASTE.txt"), "utf8");
+    if (embed !== copyPaste) throw new Error("The copy-paste TXT file does not match tilda-embed.html");
+    if (Buffer.byteLength(embed, "utf8") > 90000) {
+      throw new Error("The copy-paste bundle is too close to Tilda's T123 size limit");
+    }
+    if (!embed.includes("DecompressionStream")) {
+      throw new Error("The Tilda bundle is not compressed");
+    }
+  } else {
+    const blockNames = [
+      "TILDA-BLOCK-1-INTERFACE.txt",
+      "TILDA-BLOCK-2-PRACTICES.txt",
+      "TILDA-BLOCK-3-APPLICATION.txt"
+    ];
+    const blocks = blockNames.map((fileName) => fs.readFileSync(path.join(__dirname, fileName), "utf8"));
+    const sizes = blocks.map((block) => Buffer.byteLength(block, "utf8"));
+    if (sizes.some((size) => size > 90000)) {
+      throw new Error(`A readable Tilda block is too large: ${sizes.join(", ")}`);
+    }
+    if (embed !== blocks.join("\n\n")) {
+      throw new Error("The readable Tilda preview does not match its three copy-paste blocks");
+    }
+    if (blocks.some((block) => block.includes("DecompressionStream") || block.includes("atob("))) {
+      throw new Error("A readable Tilda block still contains compressed application data");
+    }
+    if (!blocks[1].includes("Что может произойти, чтобы чувство стало сильнее?") || !blocks[2].includes("function openHome()")) {
+      throw new Error("The readable Tilda blocks do not expose their practice definitions and application logic");
+    }
+    if (blocks.some((block) => !block.includes(expectedVersion))) {
+      throw new Error("The readable Tilda blocks do not share one source version");
+    }
+  }
+
+  if (/@import|<script[^>]+src=|<link[^>]+stylesheet/i.test(embed)) {
+    throw new Error("The Tilda bundle still depends on an external script or stylesheet");
+  }
   if (!embed.includes(`data-version="${expectedVersion}"`)) {
     throw new Error("The Tilda bundle is stale; run build-tilda-embed.cjs");
   }
@@ -269,6 +299,31 @@ async function testLegacyMigration(page, host) {
   const migrated = await readStored(page, STORAGE.entries);
   if (migrated.length !== 1 || migrated[0].id !== "legacy-tilda-entry") {
     throw new Error(`Legacy Tilda data was not migrated: ${JSON.stringify(migrated)}`);
+  }
+}
+
+async function testReadableBlockGuards(browser) {
+  const interfaceBlock = fs.readFileSync(path.join(__dirname, "TILDA-BLOCK-1-INTERFACE.txt"), "utf8");
+  const practicesBlock = fs.readFileSync(path.join(__dirname, "TILDA-BLOCK-2-PRACTICES.txt"), "utf8");
+  const applicationBlock = fs.readFileSync(path.join(__dirname, "TILDA-BLOCK-3-APPLICATION.txt"), "utf8");
+
+  const missingBlockPage = await browser.newPage();
+  await missingBlockPage.setContent(`${interfaceBlock}\n${applicationBlock}`);
+  const missingBlockText = await missingBlockPage.locator("#psychological-practices-host").innerText();
+  await missingBlockPage.close();
+  if (!missingBlockText.includes("Не найдены все три блока")) {
+    throw new Error(`A missing readable block was not explained: ${missingBlockText}`);
+  }
+
+  const version = interfaceBlock.match(/data-version="([a-f0-9]{12})"/)?.[1];
+  if (!version) throw new Error("Could not read the readable Tilda block version");
+  const mismatchedPractices = practicesBlock.replaceAll(version, "000000000000");
+  const mismatchPage = await browser.newPage();
+  await mismatchPage.setContent(`${interfaceBlock}\n${mismatchedPractices}\n${applicationBlock}`);
+  const mismatchText = await mismatchPage.locator("#psychological-practices-host").innerText();
+  await mismatchPage.close();
+  if (!mismatchText.includes("разным версиям")) {
+    throw new Error(`A readable block version mismatch was not explained: ${mismatchText}`);
   }
 }
 
