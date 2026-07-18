@@ -79,10 +79,11 @@ const { chromium } = require("playwright");
 
   const homeVisibleOnLoad = await page.locator("#homeView").isVisible();
   const homeOptionCount = await page.locator(".home-option").count();
+  const homeOptionIndexCount = await page.locator(".home-option-index").count();
   const topbarHiddenOnHome = !await page.locator("#topbar").isVisible();
   const backupHiddenAtZero = !await page.locator("#backupStatus").isVisible();
-  if (!homeVisibleOnLoad || homeOptionCount !== 5 || !topbarHiddenOnHome || !backupHiddenAtZero) {
-    throw new Error(`Home is incomplete: visible=${homeVisibleOnLoad}, options=${homeOptionCount}, topbarHidden=${topbarHiddenOnHome}, backupHidden=${backupHiddenAtZero}`);
+  if (!homeVisibleOnLoad || homeOptionCount !== 5 || homeOptionIndexCount !== 0 || !topbarHiddenOnHome || !backupHiddenAtZero) {
+    throw new Error(`Home is incomplete: visible=${homeVisibleOnLoad}, options=${homeOptionCount}, indexes=${homeOptionIndexCount}, topbarHidden=${topbarHiddenOnHome}, backupHidden=${backupHiddenAtZero}`);
   }
   if (process.env.SCREENSHOT_DIR) {
     await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "home-desktop.png"), fullPage: true });
@@ -759,7 +760,8 @@ const { chromium } = require("playwright");
   const backupReminderVisible = await backupReminderPage.locator("#backupStatus").isVisible();
   const backupReminderTitle = await backupReminderPage.locator("#backupStatusTitle").textContent();
   const backupReminderDetail = await backupReminderPage.locator("#backupStatusDetail").textContent();
-  if (!backupReminderVisible || backupReminderTitle !== "Добавлено 3 новых записи" || backupReminderDetail !== "Лучше сохранить резервную копию.") {
+  const backupReminderSignCount = await backupReminderPage.locator(".backup-status-sign").count();
+  if (!backupReminderVisible || backupReminderSignCount !== 0 || backupReminderTitle !== "Добавлено 3 новых записи" || backupReminderDetail !== "Лучше сохранить резервную копию.") {
     throw new Error(`Backup reminder threshold is incorrect: visible=${backupReminderVisible}, title=${backupReminderTitle}, detail=${backupReminderDetail}`);
   }
   if (process.env.SCREENSHOT_DIR) {

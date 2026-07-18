@@ -675,7 +675,6 @@ function bindElements() {
   elements.deleteDialog = document.getElementById("deleteDialog");
   elements.deleteDialogRecord = document.getElementById("deleteDialogRecord");
   elements.backupStatus = document.getElementById("backupStatus");
-  elements.backupStatusSign = document.getElementById("backupStatusSign");
   elements.backupStatusTitle = document.getElementById("backupStatusTitle");
   elements.backupStatusDetail = document.getElementById("backupStatusDetail");
   elements.storageIntroDialog = document.getElementById("storageIntroDialog");
@@ -1842,7 +1841,6 @@ function renderBackupStatus() {
   if (!shouldShowReminder) return;
 
   elements.backupStatus.dataset.state = "attention";
-  elements.backupStatusSign.textContent = "!";
   elements.backupStatusTitle.textContent = "Добавлено 3 новых записи";
   elements.backupStatusDetail.textContent = "Лучше сохранить резервную копию.";
 }
