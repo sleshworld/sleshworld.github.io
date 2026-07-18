@@ -1651,6 +1651,7 @@ input[type="range"] {
 }
 
 .storage-note {
+  grid-template-columns: auto minmax(0, 1fr) auto;
   border: 1px solid var(--line-soft);
   border-left: 4px solid var(--ink);
   border-radius: 8px;
@@ -1658,6 +1659,20 @@ input[type="range"] {
   padding: 16px 18px;
   margin-bottom: 28px;
   box-shadow: none;
+}
+
+.storage-note-sign {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-content: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .storage-note-title {
@@ -2070,7 +2085,13 @@ input[type="range"] {
   }
 
   .storage-note {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .storage-note-button {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .section {

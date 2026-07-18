@@ -28,6 +28,15 @@ const { chromium } = require("playwright");
   if (await page.locator(".brand-mark").count()) {
     throw new Error("Foreign brand mark is still visible");
   }
+  if (await page.title() !== "Психологические практики") {
+    throw new Error(`Unexpected application title: ${await page.title()}`);
+  }
+  if (await page.locator(".brand h1").textContent() !== "Психологические практики") {
+    throw new Error("Application heading was not updated");
+  }
+  if (await page.locator(".storage-note-sign").textContent() !== "!") {
+    throw new Error("Storage warning sign is missing");
+  }
 
   const blankSaved = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
@@ -478,7 +487,7 @@ const { chromium } = require("playwright");
   }
   const stillPrinting = await page.evaluate(() => document.body.classList.contains("printing"));
   const titleAfterPrint = await page.title();
-  if (titleAfterPrint !== "Стресс-дневник") {
+  if (titleAfterPrint !== "Психологические практики") {
     throw new Error(`Document title was not restored: ${titleAfterPrint}`);
   }
 

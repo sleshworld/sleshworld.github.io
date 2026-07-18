@@ -1927,7 +1927,7 @@ function renderPrintRegistry(view) {
     <article class="print-entry print-registry print-registry-${escapeAttr(view)}">
       <header class="print-cover">
         <div class="print-cover-top">
-          <span class="print-kicker">Практика · Стресс-дневник</span>
+          <span class="print-kicker">Психологические практики</span>
           <span class="print-type">${escapeHTML(meta.label)}</span>
         </div>
         <h1>${escapeHTML(meta.title)}</h1>
@@ -1988,7 +1988,7 @@ function renderPrintEntry(entry) {
     <article class="print-entry">
       <header class="print-cover">
         <div class="print-cover-top">
-          <span class="print-kicker">Практика · Стресс-дневник</span>
+          <span class="print-kicker">Психологические практики</span>
           <span class="print-type">${escapeHTML(TYPE_META[entry.type].label)}</span>
         </div>
         <h1>${escapeHTML(entry.title || TYPE_META[entry.type].defaultTitle)}</h1>
