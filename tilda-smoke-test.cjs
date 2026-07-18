@@ -71,6 +71,14 @@ const STORAGE = {
   await host.locator("#titleInput").fill("Tilda: диагностика");
   await host.locator("textarea[data-path='fields.situation']").fill("Проверка диагностики внутри Tilda");
 
+  await host.locator("#newMvaButton").click();
+  await host.locator("#titleInput").fill("Tilda: MVA");
+  await host.locator("textarea[data-path='fields.request']").fill("Найти следующее действие внутри Tilda");
+  await host.locator("textarea[data-path='fields.mostValuableAction']").fill("Отправить одно конкретное сообщение");
+  if (screenshotDir) {
+    await page.screenshot({ path: path.join(screenshotDir, "tilda-mva-desktop.png"), fullPage: true });
+  }
+
   await host.locator("#newScenarioButton").click();
   await host.locator("#titleInput").fill("Tilda: сценарий");
   await host.locator("textarea[data-path^='fields.']").first().fill("Первый наблюдаемый шаг сценария");
@@ -82,9 +90,10 @@ const STORAGE = {
 
   const entries = await readStored(page, STORAGE.entries);
   if (
-    entries.length !== 3 ||
+    entries.length !== 4 ||
     !entries.some((entry) => entry.type === "diary") ||
     !entries.some((entry) => entry.type === "diagnostic") ||
+    !entries.some((entry) => entry.type === "mva" && entry.fields.mostValuableAction) ||
     !entries.some((entry) => entry.type === "scenario" && entry.reportEnabled)
   ) {
     throw new Error(`Entry persistence failed: ${JSON.stringify(entries.map((entry) => entry.type))}`);
@@ -111,7 +120,7 @@ const STORAGE = {
   const backupDownload = await backupPromise;
   const backupPath = await backupDownload.path();
   const backup = JSON.parse(fs.readFileSync(backupPath, "utf8"));
-  if (backup.entries.length !== 3 || backup.actionRows.length !== 1 || backup.triggerRows.length !== 1) {
+  if (backup.entries.length !== 4 || backup.actionRows.length !== 1 || backup.triggerRows.length !== 1) {
     throw new Error("The JSON backup from the Tilda bundle is incomplete");
   }
 

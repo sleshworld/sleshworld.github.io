@@ -21,6 +21,12 @@ const TYPE_META = {
     titleLabel: "Название диагностики",
     titlePlaceholder: "Введите название"
   },
+  mva: {
+    label: "MVA",
+    defaultTitle: "Новый разбор MVA",
+    titleLabel: "Название разбора",
+    titlePlaceholder: "Введите название"
+  },
   scenario: {
     label: "Сценарий",
     defaultTitle: "Новый сценарий",
@@ -275,6 +281,122 @@ const DIARY_SECTIONS = [
         label: "Какую проблему решало действие?",
         hint: "Если действие решало не реальную проблему, а облегчало чувство, переходи к рационализации.",
         rows: 3
+      }
+    ]
+  }
+];
+
+const MVA_SECTIONS = [
+  {
+    title: "Запрос",
+    index: "01",
+    fields: [
+      {
+        key: "request",
+        label: "Какая есть проблема, которую не получается решить, и как ты хочешь, чтобы она решилась?",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Цель запроса",
+    index: "02",
+    fields: [
+      {
+        key: "goal",
+        label: "Что изменится в твоей жизни, если проблема решится желаемым способом?",
+        rows: 3
+      }
+    ]
+  },
+  {
+    title: "Чувства",
+    index: "03",
+    fields: [
+      {
+        key: "feelings",
+        label: "Представь, что желаемый результат уже стал реальностью. Какое чувство возникает?",
+        rows: 3
+      }
+    ]
+  },
+  {
+    title: "Мысли",
+    index: "04",
+    fields: [
+      {
+        key: "thoughts",
+        label: "Какая мысль появляется вместе с этим чувством?",
+        rows: 3
+      }
+    ]
+  },
+  {
+    title: "Условие",
+    index: "05",
+    fields: [
+      {
+        key: "condition",
+        label: "Какое одно условие должно возникнуть в твоей жизни, чтобы эта мысль могла реализоваться?",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Действия сейчас",
+    index: "06",
+    fields: [
+      {
+        key: "currentActions",
+        label: "Что ты сейчас делаешь, чтобы создать это условие?",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Принятие и осознание",
+    index: "07",
+    fields: [
+      {
+        key: "strategyReview",
+        label: "Насколько эффективна текущая стратегия?",
+        hint: "Что действительно приближает к условию, а что только создаёт ощущение движения?",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Наиболее ценное действие (MVA)",
+    index: "08",
+    fields: [
+      {
+        key: "mostValuableAction",
+        label: "Какое действие нужно сделать сейчас, чтобы нужное условие появилось в твоей жизни?",
+        hint: "Выбери одно конкретное действие, которое сильнее всего приближает к цели.",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Рационализация",
+    index: "09",
+    fields: [
+      {
+        key: "realityCheck",
+        label: "Насколько эта мысль осуществима в реальной жизни? Как адаптировать её к реальности?",
+        rows: 4
+      }
+    ]
+  },
+  {
+    title: "Адаптация",
+    index: "10",
+    fields: [
+      {
+        key: "adaptedAction",
+        label: "Как адаптировать наиболее ценное действие к реальной жизни?",
+        hint: "Что именно, когда и в каком минимальном объёме можно сделать?",
+        rows: 4
       }
     ]
   }
@@ -696,11 +818,13 @@ function bindEvents() {
   document.getElementById("homeButton").addEventListener("click", openHome);
   document.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+  document.getElementById("newMvaButton").addEventListener("click", () => createEntry("mva"));
   document.getElementById("newScenarioButton").addEventListener("click", () => createEntry("scenario"));
   document.getElementById("actionsPageButton").addEventListener("click", () => openRegistry("actions"));
   document.getElementById("triggersPageButton").addEventListener("click", () => openRegistry("triggers"));
   document.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
   document.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+  document.getElementById("emptyNewMvaButton").addEventListener("click", () => createEntry("mva"));
   document.getElementById("emptyNewScenarioButton").addEventListener("click", () => createEntry("scenario"));
   document.getElementById("emptyActionsPageButton").addEventListener("click", () => openRegistry("actions"));
   document.getElementById("emptyTriggersPageButton").addEventListener("click", () => openRegistry("triggers"));
@@ -1163,6 +1287,7 @@ function renderEditor() {
   const renderers = {
     diary: renderDiary,
     diagnostic: renderDiagnostic,
+    mva: renderMva,
     scenario: renderScenario
   };
   elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
@@ -1195,6 +1320,22 @@ function renderDiary(entry) {
   `;
   const diary = DIARY_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
   return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
+}
+
+function renderMva(entry) {
+  return `
+    <div class="protocol-intro mva-intro">
+      <div>
+        <p class="protocol-kicker">Most Valuable Action</p>
+        <h2>От результата к действию</h2>
+        <p>Проследи путь от желаемого результата до одного действия, которое сильнее всего приближает к нему сейчас.</p>
+      </div>
+    </div>
+    <div class="mva-builder">
+      ${MVA_SECTIONS.map((section) => renderProtocolSection(section, entry, "mva")).join("")}
+    </div>
+    ${renderNotes(entry)}
+  `;
 }
 
 function renderScenario(entry) {
@@ -1252,7 +1393,9 @@ function renderProtocolSection(section, entry, variant, rootPath = "fields") {
   const fields = section.fields.map((field) => renderProtocolField(field, entry, variant, values, rootPath)).join("");
   const sectionClass = variant === "scenario"
     ? `protocol-section scenario-phase tone-${section.tone || "coral"}`
-    : "protocol-section report-phase";
+    : variant === "mva"
+      ? `protocol-section mva-phase${section.index === "08" ? " mva-key-step" : ""}`
+      : "protocol-section report-phase";
   return `
     <section class="${sectionClass}" data-protocol-step="${escapeAttr(section.index)}">
       <div class="protocol-section-header">
@@ -2060,6 +2203,7 @@ function appendActionRowsMarkdown(lines, rows) {
 
 function getSectionsForEntry(entry) {
   if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
+  if (entry.type === "mva") return MVA_SECTIONS;
   if (entry.type === "scenario") return SCENARIO_SECTIONS;
   if (entry.type === "report") return REPORT_SECTIONS;
   return DIARY_SECTIONS;
@@ -2190,7 +2334,7 @@ function renderPrintSections(sections, values, entry) {
     if (fields.length === 0) return "";
 
     return `
-      <section class="print-section">
+      <section class="print-section${entry.type === "mva" && section.index === "08" ? " print-mva-key" : ""}">
         <div class="print-section-header">
           <h2>${escapeHTML(section.title)}</h2>
           <span class="print-step">${escapeHTML(section.index)}</span>
@@ -2326,7 +2470,7 @@ function searchValue(value) {
 
 function getPersistedEntries() {
   return entries
-    .filter((entry) => ["diary", "diagnostic", "scenario"].includes(entry.type))
+    .filter((entry) => ["diary", "diagnostic", "mva", "scenario"].includes(entry.type))
     .filter(shouldPersistEntry);
 }
 
@@ -2414,6 +2558,7 @@ function formatDate(value) {
 function getEntryDateLabel(type) {
   if (type === "scenario") return "Дата выполнения";
   if (type === "report") return "Дата отчёта";
+  if (type === "mva") return "Дата разбора";
   return "Дата ситуации";
 }
 

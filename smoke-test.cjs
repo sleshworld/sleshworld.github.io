@@ -82,7 +82,7 @@ const { chromium } = require("playwright");
   const homeOptionIndexCount = await page.locator(".home-option-index").count();
   const topbarHiddenOnHome = !await page.locator("#topbar").isVisible();
   const backupHiddenAtZero = !await page.locator("#backupStatus").isVisible();
-  if (!homeVisibleOnLoad || homeOptionCount !== 5 || homeOptionIndexCount !== 0 || !topbarHiddenOnHome || !backupHiddenAtZero) {
+  if (!homeVisibleOnLoad || homeOptionCount !== 6 || homeOptionIndexCount !== 0 || !topbarHiddenOnHome || !backupHiddenAtZero) {
     throw new Error(`Home is incomplete: visible=${homeVisibleOnLoad}, options=${homeOptionCount}, indexes=${homeOptionIndexCount}, topbarHidden=${topbarHiddenOnHome}, backupHidden=${backupHiddenAtZero}`);
   }
   if (process.env.SCREENSHOT_DIR) {
@@ -320,11 +320,66 @@ const { chromium } = require("playwright");
     await saveCurrentPdf(page, process.env.REPORT_PDF_OUTPUT);
   }
 
+  await page.locator("#newMvaButton").click();
+  const savedAfterBlankMva = await page.evaluate(() => {
+    return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
+  });
+  const mvaDateLabel = await page.locator("#entryDateLabel").textContent();
+  const mvaTitleLabel = await page.locator("#titleFieldLabel").textContent();
+  const mvaTitlePlaceholder = await page.locator("#titleInput").getAttribute("placeholder");
+  const mvaSectionCount = await page.locator(".mva-phase").count();
+  const mvaKeyStepCount = await page.locator(".mva-key-step[data-protocol-step='08']").count();
+  if (
+    savedAfterBlankMva !== 2 ||
+    mvaDateLabel !== "Дата разбора" ||
+    mvaTitleLabel !== "Название разбора" ||
+    mvaTitlePlaceholder !== "Введите название" ||
+    mvaSectionCount !== 10 ||
+    mvaKeyStepCount !== 1
+  ) {
+    throw new Error(`MVA form is incomplete: ${JSON.stringify({ savedAfterBlankMva, mvaDateLabel, mvaTitleLabel, mvaTitlePlaceholder, mvaSectionCount, mvaKeyStepCount })}`);
+  }
+
+  await page.locator("#titleInput").fill("MVA: разговор о повышении");
+  const mvaValues = {
+    request: "Не решаюсь обсудить повышение и хочу спокойно начать разговор",
+    goal: "Появится ясность по роли, ожиданиям и следующему шагу",
+    feelings: "Уверенность и облегчение",
+    thoughts: "Я могу прямо обсуждать свой вклад и развитие",
+    condition: "Назначена отдельная встреча с руководителем",
+    currentActions: "Собираю аргументы, но откладываю просьбу о встрече",
+    strategyReview: "Подготовка полезна, но без встречи не меняет ситуацию",
+    mostValuableAction: "Сегодня до 16:00 отправить руководителю короткую просьбу о встрече",
+    realityCheck: "Повышение не гарантировано, но запросить обратную связь и критерии реалистично",
+    adaptedAction: "Открыть чат, написать два предложения и отправить до 16:00"
+  };
+  for (const [key, value] of Object.entries(mvaValues)) {
+    await page.locator(`textarea[data-path='fields.${key}']`).fill(value);
+  }
+
+  const mvaMarkdown = await page.evaluate(() => formatEntryMarkdown(getActiveEntry()));
+  const mvaPrint = await page.evaluate(() => renderPrintEntry(getActiveEntry()));
+  if (!mvaMarkdown.includes("## 08. Наиболее ценное действие (MVA)") || !mvaMarkdown.includes(mvaValues.mostValuableAction)) {
+    throw new Error("MVA was not formatted correctly in Markdown");
+  }
+  if (!mvaPrint.includes("print-mva-key") || !mvaPrint.includes(mvaValues.adaptedAction)) {
+    throw new Error("MVA was not included correctly in PDF output");
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "mva-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "mva-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  if (process.env.MVA_PDF_OUTPUT) {
+    await saveCurrentPdf(page, process.env.MVA_PDF_OUTPUT);
+  }
+
   const savedEntryCountBeforeRegistries = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
-  if (savedEntryCountBeforeRegistries !== 2) {
-    throw new Error(`Scenario was not saved as one combined entry: ${savedEntryCountBeforeRegistries}`);
+  if (savedEntryCountBeforeRegistries !== 3) {
+    throw new Error(`Scenario and MVA were not saved as separate entries: ${savedEntryCountBeforeRegistries}`);
   }
 
   await page.locator("#actionsPageButton").click();
@@ -447,8 +502,8 @@ const { chromium } = require("playwright");
   }
 
   const backupPromise = page.waitForEvent("download");
-  const backupStatusBeforeHidden = await page.locator("#backupStatus").evaluate((status) => status.classList.contains("hidden"));
-  if (!backupStatusBeforeHidden) throw new Error("Backup status was shown before three new entries existed");
+  const backupStatusBeforeVisible = await page.locator("#backupStatus").evaluate((status) => !status.classList.contains("hidden"));
+  if (!backupStatusBeforeVisible) throw new Error("Backup status was not shown after three new entries existed");
   await page.locator("#backupButton").click();
   const backupDownload = await backupPromise;
   const backupFileName = backupDownload.suggestedFilename();
@@ -458,9 +513,10 @@ const { chromium } = require("playwright");
     backupPayload.actionRows.length !== 2 ||
     backupPayload.triggerRows.length !== 2 ||
     !backupPayload.entries.some((entry) => entry.type === "scenario" && entry.reportEnabled && entry.report.actualEvents.length === 2) ||
+    !backupPayload.entries.some((entry) => entry.type === "mva" && entry.fields.mostValuableAction === mvaValues.mostValuableAction) ||
     backupPayload.entries.some((entry) => entry.type === "report")
   ) {
-    throw new Error("Backup does not include the combined scenario and both registries");
+    throw new Error("Backup does not include MVA, the combined scenario and both registries");
   }
   if (!backupFileName.startsWith("Практики_резервная_копия_")) {
     throw new Error(`Unexpected backup file name: ${backupFileName}`);
@@ -976,6 +1032,8 @@ const { chromium } = require("playwright");
     savedAfterBlankDiagnostic,
     savedAfterBlankScenario,
     savedAfterBlankScenarioToggle,
+    savedAfterBlankMva,
+    mvaSectionCount,
     embeddedReportOpened: reportBefore === 0 && reportAfter === 1,
     reportScrollShift,
     savedAfterBlankActions,
@@ -988,7 +1046,7 @@ const { chromium } = require("playwright");
     triggerRowsStored: triggerRowsStored.length,
     registryPrintTitle,
     backupVersion: backupPayload.version,
-    backupStatusBeforeHidden,
+    backupStatusBeforeVisible,
     backupStatusAfterHidden,
     backupStatusHiddenAfterSave,
     backupStatusHiddenAfterEdit,

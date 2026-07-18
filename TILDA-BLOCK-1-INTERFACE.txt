@@ -41,11 +41,11 @@
   }
 </style>
 
-<div id="psychological-practices-host" data-version="26e29b4895ec">
+<div id="psychological-practices-host" data-version="908017602e37">
   <p class="psychological-practices-status">Для запуска добавьте следом блоки 2 и 3.</p>
 </div>
 
-<template id="psychological-practices-template" data-version="26e29b4895ec">
+<template id="psychological-practices-template" data-version="908017602e37">
   <style>
     :host {
       display: block;
@@ -558,6 +558,7 @@
     }
 
     .scenario-builder,
+    .mva-builder,
     .report-builder {
       overflow: hidden;
       border: 2px solid var(--line);
@@ -1821,10 +1822,6 @@
       transition: border-color 140ms ease, background-color 140ms ease;
     }
 
-    .home-option:nth-last-child(-n + 2) {
-      grid-column: span 3;
-    }
-
     .home-option:hover {
       border-color: var(--ink);
       background: #fafafa;
@@ -2130,6 +2127,7 @@
     }
 
     .scenario-builder,
+    .mva-builder,
     .report-builder {
       border: 1px solid var(--line-soft);
       border-radius: 8px;
@@ -2171,6 +2169,46 @@
     .protocol-fields {
       gap: 20px;
       padding: 22px;
+    }
+
+    .mva-intro {
+      border-color: #b8d7c7;
+      background: #edf8f2;
+    }
+
+    .mva-intro .protocol-kicker {
+      color: #286f50;
+    }
+
+    .mva-builder {
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .mva-builder .protocol-fields {
+      padding: 18px 22px 22px;
+    }
+
+    .mva-phase .protocol-step {
+      background: #286f50;
+    }
+
+    .mva-key-step {
+      background: #fffaf8;
+    }
+
+    .mva-key-step .protocol-section-header {
+      background: var(--accent-soft);
+      border-bottom-color: #f1c3b5;
+    }
+
+    .mva-key-step .protocol-step {
+      background: var(--accent);
+      color: var(--ink);
+    }
+
+    .mva-key-step .protocol-fields {
+      box-shadow: inset 4px 0 0 var(--accent);
     }
 
     .entry-list-heading > span {
@@ -2511,6 +2549,10 @@
       .protocol-fields {
         padding: 16px;
       }
+
+      .mva-builder .protocol-fields {
+        padding: 16px;
+      }
     }
 
     @media print {
@@ -2690,6 +2732,14 @@
         margin: 0 0 14pt;
         break-inside: avoid;
         page-break-inside: avoid;
+      }
+
+      .print-mva-key {
+        border: 1pt solid #ff8562;
+        border-left: 4pt solid #ff8562;
+        border-radius: 6pt;
+        background: #fff7f4;
+        padding: 11pt;
       }
 
       .print-section-header {
@@ -3045,13 +3095,14 @@
               <h1>Психологические практики</h1>
             </div>
           </div>
-          <p>Диагностика, дневник и экспозиции</p>
+          <p>Разбор ситуаций, решений и экспозиций</p>
           <span class="local-badge">Локально</span>
         </button>
 
         <div class="create-grid" aria-label="Разделы и новые записи">
           <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
           <button class="button" type="button" id="newDiagnosticButton">Диагностика</button>
+          <button class="button" type="button" id="newMvaButton">MVA</button>
           <button class="button" type="button" id="newScenarioButton">Сценарий</button>
           <button class="button" type="button" id="actionsPageButton" aria-pressed="false">Действия</button>
           <button class="button" type="button" id="triggersPageButton" aria-pressed="false">Триггеры</button>
@@ -3097,6 +3148,13 @@
               <span>
                 <strong>Диагностика</strong>
                 <small>Исследовать чувство, образ себя и связанное воспоминание.</small>
+              </span>
+              <span class="home-option-arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="home-option" type="button" data-home-entry="mva">
+              <span>
+                <strong>MVA</strong>
+                <small>Найти наиболее ценное действие в сложной ситуации.</small>
               </span>
               <span class="home-option-arrow" aria-hidden="true">→</span>
             </button>
@@ -3182,6 +3240,7 @@
           <div class="create-grid narrow">
             <button class="button primary" type="button" id="emptyNewDiaryButton">Дневник</button>
             <button class="button" type="button" id="emptyNewDiagnosticButton">Диагностика</button>
+            <button class="button" type="button" id="emptyNewMvaButton">MVA</button>
             <button class="button" type="button" id="emptyNewScenarioButton">Сценарий</button>
             <button class="button" type="button" id="emptyActionsPageButton">Действия</button>
             <button class="button" type="button" id="emptyTriggersPageButton">Триггеры</button>

@@ -2,11 +2,11 @@
   БЛОК 3 ИЗ 3: ЛОГИКА ПРИЛОЖЕНИЯ
   Этот блок проверяет версии первых двух блоков и запускает интерфейс.
 -->
-<script id="psychological-practices-application" data-version="26e29b4895ec">
+<script id="psychological-practices-application" data-version="908017602e37">
 (() => {
   "use strict";
 
-  const version = "26e29b4895ec";
+  const version = "908017602e37";
   const host = document.getElementById("psychological-practices-host");
   const template = document.getElementById("psychological-practices-template");
   const definition = window.PsychologicalPracticesDefinition;
@@ -44,6 +44,7 @@
     REGISTRY_META,
     DIAGNOSTIC_SECTIONS,
     DIARY_SECTIONS,
+    MVA_SECTIONS,
     SCENARIO_SECTIONS,
     REPORT_SECTIONS,
     ACTION_COLUMNS,
@@ -140,11 +141,13 @@
     root.getElementById("homeButton").addEventListener("click", openHome);
     root.getElementById("newDiaryButton").addEventListener("click", () => createEntry("diary"));
     root.getElementById("newDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+    root.getElementById("newMvaButton").addEventListener("click", () => createEntry("mva"));
     root.getElementById("newScenarioButton").addEventListener("click", () => createEntry("scenario"));
     root.getElementById("actionsPageButton").addEventListener("click", () => openRegistry("actions"));
     root.getElementById("triggersPageButton").addEventListener("click", () => openRegistry("triggers"));
     root.getElementById("emptyNewDiaryButton").addEventListener("click", () => createEntry("diary"));
     root.getElementById("emptyNewDiagnosticButton").addEventListener("click", () => createEntry("diagnostic"));
+    root.getElementById("emptyNewMvaButton").addEventListener("click", () => createEntry("mva"));
     root.getElementById("emptyNewScenarioButton").addEventListener("click", () => createEntry("scenario"));
     root.getElementById("emptyActionsPageButton").addEventListener("click", () => openRegistry("actions"));
     root.getElementById("emptyTriggersPageButton").addEventListener("click", () => openRegistry("triggers"));
@@ -607,6 +610,7 @@
     const renderers = {
       diary: renderDiary,
       diagnostic: renderDiagnostic,
+      mva: renderMva,
       scenario: renderScenario
     };
     elements.formRoot.innerHTML = (renderers[entry.type] || renderDiary)(entry);
@@ -639,6 +643,22 @@
     `;
     const diary = DIARY_SECTIONS.map((section) => renderSection(section, entry.fields, "fields")).join("");
     return notice + diary + renderProblemBranch(entry) + renderNotes(entry);
+  }
+
+  function renderMva(entry) {
+    return `
+      <div class="protocol-intro mva-intro">
+        <div>
+          <p class="protocol-kicker">Most Valuable Action</p>
+          <h2>От результата к действию</h2>
+          <p>Проследи путь от желаемого результата до одного действия, которое сильнее всего приближает к нему сейчас.</p>
+        </div>
+      </div>
+      <div class="mva-builder">
+        ${MVA_SECTIONS.map((section) => renderProtocolSection(section, entry, "mva")).join("")}
+      </div>
+      ${renderNotes(entry)}
+    `;
   }
 
   function renderScenario(entry) {
@@ -696,7 +716,9 @@
     const fields = section.fields.map((field) => renderProtocolField(field, entry, variant, values, rootPath)).join("");
     const sectionClass = variant === "scenario"
       ? `protocol-section scenario-phase tone-${section.tone || "coral"}`
-      : "protocol-section report-phase";
+      : variant === "mva"
+        ? `protocol-section mva-phase${section.index === "08" ? " mva-key-step" : ""}`
+        : "protocol-section report-phase";
     return `
       <section class="${sectionClass}" data-protocol-step="${escapeAttr(section.index)}">
         <div class="protocol-section-header">
@@ -1508,6 +1530,7 @@
 
   function getSectionsForEntry(entry) {
     if (entry.type === "diagnostic") return DIAGNOSTIC_SECTIONS;
+    if (entry.type === "mva") return MVA_SECTIONS;
     if (entry.type === "scenario") return SCENARIO_SECTIONS;
     if (entry.type === "report") return REPORT_SECTIONS;
     return DIARY_SECTIONS;
@@ -1638,7 +1661,7 @@
       if (fields.length === 0) return "";
 
       return `
-        <section class="print-section">
+        <section class="print-section${entry.type === "mva" && section.index === "08" ? " print-mva-key" : ""}">
           <div class="print-section-header">
             <h2>${escapeHTML(section.title)}</h2>
             <span class="print-step">${escapeHTML(section.index)}</span>
@@ -1774,7 +1797,7 @@
 
   function getPersistedEntries() {
     return entries
-      .filter((entry) => ["diary", "diagnostic", "scenario"].includes(entry.type))
+      .filter((entry) => ["diary", "diagnostic", "mva", "scenario"].includes(entry.type))
       .filter(shouldPersistEntry);
   }
 
@@ -1862,6 +1885,7 @@
   function getEntryDateLabel(type) {
     if (type === "scenario") return "Дата выполнения";
     if (type === "report") return "Дата отчёта";
+    if (type === "mva") return "Дата разбора";
     return "Дата ситуации";
   }
 

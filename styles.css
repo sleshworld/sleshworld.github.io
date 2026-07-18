@@ -507,6 +507,7 @@ button:focus {
 }
 
 .scenario-builder,
+.mva-builder,
 .report-builder {
   overflow: hidden;
   border: 2px solid var(--line);
@@ -1770,10 +1771,6 @@ input[type="range"] {
   transition: border-color 140ms ease, background-color 140ms ease;
 }
 
-.home-option:nth-last-child(-n + 2) {
-  grid-column: span 3;
-}
-
 .home-option:hover {
   border-color: var(--ink);
   background: #fafafa;
@@ -2079,6 +2076,7 @@ input[type="range"] {
 }
 
 .scenario-builder,
+.mva-builder,
 .report-builder {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
@@ -2120,6 +2118,46 @@ input[type="range"] {
 .protocol-fields {
   gap: 20px;
   padding: 22px;
+}
+
+.mva-intro {
+  border-color: #b8d7c7;
+  background: #edf8f2;
+}
+
+.mva-intro .protocol-kicker {
+  color: #286f50;
+}
+
+.mva-builder {
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.mva-builder .protocol-fields {
+  padding: 18px 22px 22px;
+}
+
+.mva-phase .protocol-step {
+  background: #286f50;
+}
+
+.mva-key-step {
+  background: #fffaf8;
+}
+
+.mva-key-step .protocol-section-header {
+  background: var(--accent-soft);
+  border-bottom-color: #f1c3b5;
+}
+
+.mva-key-step .protocol-step {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.mva-key-step .protocol-fields {
+  box-shadow: inset 4px 0 0 var(--accent);
 }
 
 .entry-list-heading > span {
@@ -2460,6 +2498,10 @@ input[type="range"] {
   .protocol-fields {
     padding: 16px;
   }
+
+  .mva-builder .protocol-fields {
+    padding: 16px;
+  }
 }
 
 @media print {
@@ -2639,6 +2681,14 @@ input[type="range"] {
     margin: 0 0 14pt;
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .print-mva-key {
+    border: 1pt solid #ff8562;
+    border-left: 4pt solid #ff8562;
+    border-radius: 6pt;
+    background: #fff7f4;
+    padding: 11pt;
   }
 
   .print-section-header {

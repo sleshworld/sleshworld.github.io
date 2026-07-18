@@ -18,13 +18,14 @@
             <h1>Психологические практики</h1>
           </div>
         </div>
-        <p>Диагностика, дневник и экспозиции</p>
+        <p>Разбор ситуаций, решений и экспозиций</p>
         <span class="local-badge">Локально</span>
       </button>
 
       <div class="create-grid" aria-label="Разделы и новые записи">
         <button class="button primary" type="button" id="newDiaryButton">Дневник</button>
         <button class="button" type="button" id="newDiagnosticButton">Диагностика</button>
+        <button class="button" type="button" id="newMvaButton">MVA</button>
         <button class="button" type="button" id="newScenarioButton">Сценарий</button>
         <button class="button" type="button" id="actionsPageButton" aria-pressed="false">Действия</button>
         <button class="button" type="button" id="triggersPageButton" aria-pressed="false">Триггеры</button>
@@ -70,6 +71,13 @@
             <span>
               <strong>Диагностика</strong>
               <small>Исследовать чувство, образ себя и связанное воспоминание.</small>
+            </span>
+            <span class="home-option-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="home-option" type="button" data-home-entry="mva">
+            <span>
+              <strong>MVA</strong>
+              <small>Найти наиболее ценное действие в сложной ситуации.</small>
             </span>
             <span class="home-option-arrow" aria-hidden="true">→</span>
           </button>
@@ -155,6 +163,7 @@
         <div class="create-grid narrow">
           <button class="button primary" type="button" id="emptyNewDiaryButton">Дневник</button>
           <button class="button" type="button" id="emptyNewDiagnosticButton">Диагностика</button>
+          <button class="button" type="button" id="emptyNewMvaButton">MVA</button>
           <button class="button" type="button" id="emptyNewScenarioButton">Сценарий</button>
           <button class="button" type="button" id="emptyActionsPageButton">Действия</button>
           <button class="button" type="button" id="emptyTriggersPageButton">Триггеры</button>
