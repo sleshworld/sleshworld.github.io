@@ -37,6 +37,18 @@ const { chromium } = require("playwright");
   if (await page.locator(".storage-note-sign").textContent() !== "!") {
     throw new Error("Storage warning sign is missing");
   }
+  const faviconHref = await page.locator("link[rel='icon']").getAttribute("href");
+  if (faviconHref !== "favicon.svg" || !fs.existsSync(path.join(__dirname, faviconHref))) {
+    throw new Error(`Favicon is missing: ${faviconHref}`);
+  }
+  const faviconPage = await browser.newPage({ viewport: { width: 128, height: 128 } });
+  await faviconPage.goto(pathToFileURL(path.join(__dirname, faviconHref)).href, { waitUntil: "domcontentloaded" });
+  if (await faviconPage.locator("svg").count() !== 1) throw new Error("Favicon SVG could not be rendered");
+  if (process.env.SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
+    await faviconPage.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "favicon.png") });
+  }
+  await faviconPage.close();
 
   const blankSaved = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
@@ -91,6 +103,12 @@ const { chromium } = require("playwright");
   });
   if (savedAfterDeleteConfirm !== 1 || await page.locator("#titleInput").inputValue() !== "Smoke entry") {
     throw new Error("Confirming delete did not remove only the selected entry");
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    await page.locator(".sidebar").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "backup-reminder-desktop.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator(".sidebar").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "backup-reminder-mobile.png") });
+    await page.setViewportSize({ width: 1280, height: 720 });
   }
   await page.locator("#newDiagnosticButton").click();
   const diagnosticIntensityCount = await page.locator("input[type='range'][data-path='fields.feelingIntensity']").count();
@@ -346,8 +364,13 @@ const { chromium } = require("playwright");
   }
 
   const backupPromise = page.waitForEvent("download");
+  const backupStatusBefore = await page.locator("#backupStatusTitle").textContent();
+  if (backupStatusBefore !== "Резервной копии ещё нет") {
+    throw new Error(`Unexpected initial backup status: ${backupStatusBefore}`);
+  }
   await page.locator("#backupButton").click();
   const backupDownload = await backupPromise;
+  const backupFileName = backupDownload.suggestedFilename();
   const backupPayload = JSON.parse(fs.readFileSync(await backupDownload.path(), "utf8"));
   if (
     backupPayload.version !== 2 ||
@@ -358,6 +381,23 @@ const { chromium } = require("playwright");
   ) {
     throw new Error("Backup does not include the combined scenario and both registries");
   }
+  const backupStatusAfter = await page.locator("#backupStatusTitle").textContent();
+  if (backupStatusAfter !== "Копия актуальна" || !backupFileName.startsWith("Практики_резервная_копия_")) {
+    throw new Error(`Backup status was not updated: ${backupStatusAfter}, ${backupFileName}`);
+  }
+  await page.evaluate(() => {
+    const staleDate = new Date(Date.now() - (8 * 86400000)).toISOString();
+    localStorage.setItem("stress-diary-app.last-backup-at.v1", staleDate);
+    renderBackupStatus();
+  });
+  const staleBackupStatus = await page.locator("#backupStatusTitle").textContent();
+  if (staleBackupStatus !== "Пора обновить резервную копию") {
+    throw new Error(`Stale backup reminder was not shown: ${staleBackupStatus}`);
+  }
+  await page.evaluate((exportedAt) => {
+    localStorage.setItem("stress-diary-app.last-backup-at.v1", exportedAt);
+    renderBackupStatus();
+  }, backupPayload.exportedAt);
 
   if (process.env.SCREENSHOT_DIR) {
     await page.screenshot({
@@ -408,6 +448,10 @@ const { chromium } = require("playwright");
 
   await page.locator(".entry-card").filter({ hasText: "Smoke entry" }).click();
   await page.locator("#tagsInput").fill("работа, тревога");
+  const backupStatusAfterChange = await page.locator("#backupStatusTitle").textContent();
+  if (backupStatusAfterChange !== "Есть изменения после копии") {
+    throw new Error(`Backup changes were not detected: ${backupStatusAfterChange}`);
+  }
   const notesText = "Инсайт: я быстрее замечаю тревогу.\nОбсудить на встрече.";
   await page.locator("textarea[data-path='notes']").fill(notesText);
   const lastFormTextareaPath = await page.locator("#formRoot textarea").last().getAttribute("data-path");
@@ -689,6 +733,9 @@ const { chromium } = require("playwright");
     triggerRowsStored: triggerRowsStored.length,
     registryPrintTitle,
     backupVersion: backupPayload.version,
+    backupStatusAfter,
+    staleBackupStatus,
+    backupStatusAfterChange,
     migratedActionRows: migrationResult.actionRows.length,
     migratedLegacyReports: reportMigrationResult.entries.length,
     importedTriggerRows: importResult.triggerRows.length,

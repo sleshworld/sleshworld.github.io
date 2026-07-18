@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title>Психологические практики</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -37,6 +38,13 @@
       <div class="entry-list" id="entryList" aria-label="Список записей"></div>
 
       <div class="backup-box">
+        <div class="backup-status hidden" id="backupStatus" role="status" aria-live="polite">
+          <span class="backup-status-sign" id="backupStatusSign" aria-hidden="true">!</span>
+          <div>
+            <p class="backup-status-title" id="backupStatusTitle"></p>
+            <p class="backup-status-detail" id="backupStatusDetail"></p>
+          </div>
+        </div>
         <button class="button block" type="button" id="backupButton">Скачать резервную копию</button>
         <button class="button ghost block" type="button" id="importButton">Импортировать JSON</button>
         <input class="hidden" type="file" id="importFileInput" accept="application/json,.json">

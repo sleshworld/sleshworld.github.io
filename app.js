@@ -3,6 +3,9 @@ const ACTIVE_KEY = "stress-diary-app.active-id.v1";
 const ACTIONS_STORAGE_KEY = "stress-diary-app.action-rows.v1";
 const TRIGGERS_STORAGE_KEY = "stress-diary-app.trigger-rows.v1";
 const VIEW_STORAGE_KEY = "stress-diary-app.active-view.v1";
+const LAST_BACKUP_AT_KEY = "stress-diary-app.last-backup-at.v1";
+const LAST_BACKUP_FINGERPRINT_KEY = "stress-diary-app.last-backup-fingerprint.v1";
+const BACKUP_REMINDER_DAYS = 7;
 
 const FEELINGS = ["страх", "обида", "вина", "стыд", "тревога", "разочарование", "грусть", "агрессия"];
 
@@ -673,6 +676,10 @@ function bindElements() {
   elements.importFileInput = document.getElementById("importFileInput");
   elements.deleteDialog = document.getElementById("deleteDialog");
   elements.deleteDialogRecord = document.getElementById("deleteDialogRecord");
+  elements.backupStatus = document.getElementById("backupStatus");
+  elements.backupStatusSign = document.getElementById("backupStatusSign");
+  elements.backupStatusTitle = document.getElementById("backupStatusTitle");
+  elements.backupStatusDetail = document.getElementById("backupStatusDetail");
 }
 
 function bindEvents() {
@@ -773,6 +780,7 @@ function save() {
   } else {
     localStorage.removeItem(ACTIVE_KEY);
   }
+  renderBackupStatus();
 }
 
 function createEntry(type, options = {}) {
@@ -1004,6 +1012,7 @@ function render() {
   renderNavigation();
   renderList();
   renderEditor();
+  renderBackupStatus();
 }
 
 function renderNavigation() {
@@ -1720,15 +1729,91 @@ function cleanupPrint() {
 }
 
 function downloadBackup() {
+  const snapshot = createBackupSnapshot();
+  const exportedAt = new Date().toISOString();
   const payload = {
     version: 2,
-    exportedAt: new Date().toISOString(),
+    exportedAt,
+    ...snapshot
+  };
+  const date = toDateInputValue(new Date());
+  downloadBlob(JSON.stringify(payload, null, 2), `Практики_резервная_копия_${date}.json`, "application/json;charset=utf-8");
+  localStorage.setItem(LAST_BACKUP_AT_KEY, exportedAt);
+  localStorage.setItem(LAST_BACKUP_FINGERPRINT_KEY, createBackupFingerprint(snapshot));
+  renderBackupStatus();
+}
+
+function createBackupSnapshot() {
+  return {
     entries: getPersistedEntries(),
     actionRows: getPersistedRegistryRows(actionRows),
     triggerRows: getPersistedRegistryRows(triggerRows)
   };
-  const date = toDateInputValue(new Date());
-  downloadBlob(JSON.stringify(payload, null, 2), `stress-diary-backup-${date}.json`, "application/json;charset=utf-8");
+}
+
+function createBackupFingerprint(snapshot = createBackupSnapshot()) {
+  const source = JSON.stringify(snapshot);
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function renderBackupStatus() {
+  if (!elements.backupStatus) return;
+  const snapshot = createBackupSnapshot();
+  const hasData = snapshot.entries.length || snapshot.actionRows.length || snapshot.triggerRows.length;
+  elements.backupStatus.classList.toggle("hidden", !hasData);
+  if (!hasData) return;
+
+  const lastBackupAt = localStorage.getItem(LAST_BACKUP_AT_KEY) || "";
+  const lastFingerprint = localStorage.getItem(LAST_BACKUP_FINGERPRINT_KEY) || "";
+  const backupDate = new Date(lastBackupAt);
+  const hasValidBackup = lastFingerprint && !Number.isNaN(backupDate.getTime());
+  const hasChanges = !hasValidBackup || lastFingerprint !== createBackupFingerprint(snapshot);
+  const ageInDays = hasValidBackup ? (Date.now() - backupDate.getTime()) / 86400000 : Infinity;
+
+  let state = "attention";
+  let sign = "!";
+  let title = "Резервной копии ещё нет";
+  let detail = "Скачайте её, чтобы не потерять записи.";
+
+  if (hasValidBackup && ageInDays >= BACKUP_REMINDER_DAYS) {
+    title = "Пора обновить резервную копию";
+    detail = `Последняя: ${formatBackupDate(backupDate).toLowerCase()}`;
+  } else if (hasValidBackup && !hasChanges) {
+    state = "current";
+    sign = "✓";
+    title = "Копия актуальна";
+    detail = formatBackupDate(backupDate);
+  } else if (hasValidBackup && ageInDays < BACKUP_REMINDER_DAYS) {
+    state = "changed";
+    title = "Есть изменения после копии";
+    detail = `Последняя: ${formatBackupDate(backupDate).toLowerCase()}`;
+  }
+
+  elements.backupStatus.dataset.state = state;
+  elements.backupStatusSign.textContent = sign;
+  elements.backupStatusTitle.textContent = title;
+  elements.backupStatusDetail.textContent = detail;
+}
+
+function formatBackupDate(date) {
+  const now = new Date();
+  const time = new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(date);
+  if (toDateInputValue(date) === toDateInputValue(now)) return `Сегодня, ${time}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (toDateInputValue(date) === toDateInputValue(yesterday)) return `Вчера, ${time}`;
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function importBackup(event) {

@@ -1605,6 +1605,54 @@ input[type="range"] {
   padding-top: 18px;
 }
 
+.backup-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 2px 0 6px;
+}
+
+.backup-status-sign {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.backup-status[data-state="current"] .backup-status-sign {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.backup-status[data-state="changed"] .backup-status-sign {
+  background: #f1f1f1;
+}
+
+.backup-status-title,
+.backup-status-detail {
+  margin: 0;
+}
+
+.backup-status-title {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.backup-status-detail {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .topbar {
   gap: 24px;
   border-bottom: 1px solid var(--line-soft);
