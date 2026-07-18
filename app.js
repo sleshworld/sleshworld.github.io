@@ -1789,9 +1789,9 @@ function printActive() {
 
 function startPrint(title) {
   document.body.classList.add("printing");
+  document.body.classList.toggle("mobile-print", window.matchMedia("(max-width: 700px)").matches);
   titleBeforePrint = document.title;
   document.title = title;
-  showToast("В Chrome выбери «Сохранить как PDF»; на Mac в системном окне - меню «PDF»");
   window.clearTimeout(printCleanupTimer);
   window.setTimeout(() => {
     window.print();
@@ -1801,7 +1801,7 @@ function startPrint(title) {
 
 function cleanupPrint() {
   window.clearTimeout(printCleanupTimer);
-  document.body.classList.remove("printing");
+  document.body.classList.remove("printing", "mobile-print");
   elements.printRoot.innerHTML = "";
   if (titleBeforePrint) {
     document.title = titleBeforePrint;
@@ -2203,7 +2203,7 @@ function renderPrintRegistryTable(rows, columns, view) {
         ${printableRows.map((row, index) => `
           <tr>
             <th scope="row" class="print-table-number">${index + 1}</th>
-            ${columns.map((column) => `<td>${escapeHTML(formatRegistryValue(column, row[column.key]))}</td>`).join("")}
+            ${columns.map((column) => `<td data-label="${escapeAttr(column.label)}">${escapeHTML(formatRegistryValue(column, row[column.key]))}</td>`).join("")}
           </tr>
         `).join("")}
       </tbody>

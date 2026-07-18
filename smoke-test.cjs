@@ -132,13 +132,18 @@ const { chromium } = require("playwright");
   await page.locator("#deleteButton").click();
   const deleteDialogOpen = await page.locator("#deleteDialog").evaluate((dialog) => dialog.open);
   const deleteDialogRecord = await page.locator("#deleteDialogRecord").textContent();
-  if (!deleteDialogOpen || deleteDialogRecord !== "Smoke entry - копия") {
+  const deleteButtonBox = await page.locator("#confirmDeleteButton").boundingBox();
+  const keepButtonBox = await page.locator("#cancelDeleteButton").boundingBox();
+  if (!deleteDialogOpen || deleteDialogRecord !== "Smoke entry - копия" || deleteButtonBox.x >= keepButtonBox.x) {
     throw new Error(`Delete dialog is incomplete: open=${deleteDialogOpen}, record=${deleteDialogRecord}`);
   }
   if (process.env.SCREENSHOT_DIR) {
     fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
     await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "delete-dialog-desktop.png") });
     await page.setViewportSize({ width: 390, height: 844 });
+    const mobileDeleteButtonBox = await page.locator("#confirmDeleteButton").boundingBox();
+    const mobileKeepButtonBox = await page.locator("#cancelDeleteButton").boundingBox();
+    if (mobileDeleteButtonBox.x >= mobileKeepButtonBox.x) throw new Error("Delete button is not left of keep button on mobile");
     await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "delete-dialog-mobile.png") });
     await page.setViewportSize({ width: 1280, height: 720 });
   }
@@ -800,6 +805,98 @@ const { chromium } = require("playwright");
   if (!backupReminderVisibleAgain) throw new Error("Backup reminder did not reappear after three more new entries");
   await backupReminderPage.close();
 
+  const mobilePrintPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mobilePrintPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
+  await mobilePrintPage.evaluate(() => localStorage.clear());
+  await mobilePrintPage.reload();
+  await mobilePrintPage.locator("#storageIntroCloseButton").click();
+  await mobilePrintPage.locator("[data-home-entry='diary']").click();
+  await mobilePrintPage.locator("#titleInput").fill("Мобильная проверка длинного названия записи без наложений");
+  await mobilePrintPage.locator("textarea[data-path='fields.situation']").fill(
+    Array.from({ length: 18 }, (_, index) => `Абзац ${index + 1}. Длинный текст должен свободно переноситься между строками и страницами без наложения на соседние поля.`).join("\n\n")
+  );
+  await mobilePrintPage.emulateMedia({ media: "print" });
+  await mobilePrintPage.evaluate(() => {
+    elements.toast.classList.remove("visible");
+    elements.toast.textContent = "";
+    window.__mobilePrintState = null;
+    window.print = () => {
+      const meta = document.querySelector(".print-meta");
+      const field = document.querySelector(".print-field");
+      window.__mobilePrintState = {
+        isMobilePrint: document.body.classList.contains("mobile-print"),
+        appDisplay: getComputedStyle(document.querySelector(".app-shell")).display,
+        toastDisplay: getComputedStyle(elements.toast).display,
+        toastText: elements.toast.textContent,
+        printDisplay: getComputedStyle(elements.printRoot).display,
+        metaColumns: getComputedStyle(meta).gridTemplateColumns,
+        fieldBreak: getComputedStyle(field).breakInside
+      };
+    };
+  });
+  await mobilePrintPage.locator("#printButton").click();
+  await mobilePrintPage.waitForFunction(() => window.__mobilePrintState !== null);
+  const mobilePrintState = await mobilePrintPage.evaluate(() => window.__mobilePrintState);
+  if (
+    !mobilePrintState.isMobilePrint ||
+    mobilePrintState.appDisplay !== "none" ||
+    mobilePrintState.toastDisplay !== "none" ||
+    mobilePrintState.toastText ||
+    mobilePrintState.printDisplay !== "block" ||
+    mobilePrintState.metaColumns.trim().split(/\s+/).length !== 1 ||
+    mobilePrintState.fieldBreak !== "auto"
+  ) {
+    throw new Error(`Mobile entry print styles are incomplete: ${JSON.stringify(mobilePrintState)}`);
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    await mobilePrintPage.pdf({
+      path: path.join(process.env.SCREENSHOT_DIR, "mobile-entry-print.pdf"),
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true
+    });
+  }
+  await mobilePrintPage.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  await mobilePrintPage.emulateMedia({ media: "screen" });
+
+  await mobilePrintPage.locator("#triggersPageButton").click();
+  await mobilePrintPage.locator("textarea[data-registry='triggers'][data-row-index='0'][data-key='situation']").fill("Сложная ситуация с длинным описанием для мобильной PDF-версии");
+  await mobilePrintPage.locator("input[data-registry='triggers'][data-row-index='0'][data-key='difficulty']").fill("70");
+  await mobilePrintPage.locator("textarea[data-registry='triggers'][data-row-index='0'][data-key='avoidanceActions']").fill("Подробное описание охранительно-избегающих действий");
+  await mobilePrintPage.emulateMedia({ media: "print" });
+  await mobilePrintPage.evaluate(() => {
+    window.__mobileRegistryPrintState = null;
+    window.print = () => {
+      window.__mobileRegistryPrintState = {
+        headDisplay: getComputedStyle(document.querySelector(".print-registry-table thead")).display,
+        cellDisplay: getComputedStyle(document.querySelector(".print-registry-table td")).display,
+        cellLabel: document.querySelector(".print-registry-table td")?.dataset.label || "",
+        registryPage: getComputedStyle(document.querySelector(".print-registry")).getPropertyValue("page")
+      };
+    };
+  });
+  await mobilePrintPage.locator("#printButton").click();
+  await mobilePrintPage.waitForFunction(() => window.__mobileRegistryPrintState !== null);
+  const mobileRegistryPrintState = await mobilePrintPage.evaluate(() => window.__mobileRegistryPrintState);
+  if (
+    mobileRegistryPrintState.headDisplay !== "none" ||
+    mobileRegistryPrintState.cellDisplay !== "grid" ||
+    !mobileRegistryPrintState.cellLabel ||
+    mobileRegistryPrintState.registryPage.trim() !== "auto"
+  ) {
+    throw new Error(`Mobile registry print styles are incomplete: ${JSON.stringify(mobileRegistryPrintState)}`);
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    await mobilePrintPage.pdf({
+      path: path.join(process.env.SCREENSHOT_DIR, "mobile-registry-print.pdf"),
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true
+    });
+  }
+  await mobilePrintPage.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+  await mobilePrintPage.close();
+
   await browser.close();
 
   if (errors.length > 0) {
@@ -835,6 +932,8 @@ const { chromium } = require("playwright");
     backupStatusHiddenAfterEdit,
     backupStatusHiddenAfterTwoMore,
     backupReminderVisibleAgain,
+    mobilePrintState,
+    mobileRegistryPrintState,
     storageIntroOpen,
     storageIntroReopened,
     backupStatusHiddenAtTwo,

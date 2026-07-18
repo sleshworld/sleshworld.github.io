@@ -2375,11 +2375,15 @@ input[type="range"] {
 
   .confirm-dialog-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .confirm-dialog-actions .button {
     width: 100%;
+  }
+
+  .storage-intro-dialog .confirm-dialog-actions {
+    grid-template-columns: 1fr;
   }
 
   .storage-note {
@@ -2426,16 +2430,20 @@ input[type="range"] {
   body.printing {
     background: #ffffff;
     color: #111111;
+    min-width: 0;
+    overflow: visible;
   }
 
   body.printing .app-shell,
   body.printing .toast {
-    display: none;
+    display: none !important;
   }
 
   body.printing .print-root {
     display: block;
+    width: 100%;
     padding: 0;
+    overflow: visible;
     color: #111111;
     font-family: Manrope, Arial, sans-serif;
     -webkit-print-color-adjust: exact;
@@ -2500,11 +2508,12 @@ input[type="range"] {
     line-height: 1.02;
     letter-spacing: 0;
     text-transform: none;
+    overflow-wrap: anywhere;
   }
 
   .print-meta {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(105pt, 1fr));
     gap: 7pt;
   }
 
@@ -2629,7 +2638,8 @@ input[type="range"] {
     border-radius: 5pt;
     background: #ffffff;
     padding: 8pt 9pt;
-    break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   .print-field-label {
@@ -2784,5 +2794,135 @@ input[type="range"] {
   .print-registry-table-triggers th:nth-child(4),
   .print-registry-table-triggers td:nth-child(4) {
     width: 49%;
+  }
+
+  body.mobile-print .print-entry {
+    width: 100%;
+    max-width: none;
+    font-size: 10pt;
+  }
+
+  body.mobile-print .print-cover-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  body.mobile-print .print-kicker {
+    overflow-wrap: anywhere;
+  }
+
+  body.mobile-print .print-type {
+    max-width: 115pt;
+    white-space: normal;
+    text-align: center;
+  }
+
+  body.mobile-print .print-entry h1 {
+    font-size: 22pt;
+    line-height: 1.08;
+  }
+
+  body.mobile-print .print-meta {
+    grid-template-columns: 1fr;
+  }
+
+  body.mobile-print .print-section-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  body.mobile-print .print-entry h2 {
+    font-size: 14pt;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  body.mobile-print .print-field,
+  body.mobile-print .print-field-value {
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  body.mobile-print .print-field-value {
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+
+  body.mobile-print .print-registry {
+    page: auto;
+  }
+
+  body.mobile-print .print-registry .print-cover {
+    display: block;
+  }
+
+  body.mobile-print .print-registry .print-cover-top {
+    margin-bottom: 12pt;
+  }
+
+  body.mobile-print .print-registry .print-cover h1 {
+    margin-bottom: 12pt;
+  }
+
+  body.mobile-print .print-registry-table,
+  body.mobile-print .print-registry-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  body.mobile-print .print-registry-table {
+    border: 0;
+    font-size: 9pt;
+  }
+
+  body.mobile-print .print-registry-table thead {
+    display: none;
+  }
+
+  body.mobile-print .print-registry-table tr {
+    display: block;
+    border: 1pt solid #111111;
+    margin-bottom: 9pt;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  body.mobile-print .print-registry-table .print-table-number {
+    display: block;
+    width: auto;
+    border: 0;
+    border-bottom: 1pt solid #dedede;
+    background: #fff0eb;
+    padding: 6pt 8pt;
+    text-align: left;
+  }
+
+  body.mobile-print .print-registry-table td,
+  body.mobile-print .print-registry-table-actions td:nth-child(n),
+  body.mobile-print .print-registry-table-triggers td:nth-child(n) {
+    display: grid;
+    width: auto;
+    grid-template-columns: minmax(82pt, 34%) minmax(0, 1fr);
+    gap: 8pt;
+    border: 0;
+    border-bottom: 0.7pt solid #dedede;
+    background: #ffffff;
+    padding: 7pt 8pt;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  body.mobile-print .print-registry-table td::before {
+    content: attr(data-label);
+    color: #666666;
+    font-size: 7pt;
+    font-weight: 700;
+    line-height: 1.25;
+    text-transform: uppercase;
+  }
+
+  body.mobile-print .print-registry-table tr > :last-child {
+    border-bottom: 0;
   }
 }
