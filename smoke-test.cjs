@@ -52,10 +52,10 @@ const { chromium } = require("playwright");
 
   const storageIntroOpen = await page.locator("#storageIntroDialog").evaluate((dialog) => dialog.open);
   const storageIntroText = (await page.locator("#storageIntroDialog").innerText()).toLowerCase();
-  const firstStorageNoticeHidden = await page.locator("#storageNotice").evaluate((notice) => notice.classList.contains("hidden"));
+  const permanentStorageNoticeVisible = await page.locator(".storage-note").isVisible();
   if (
     !storageIntroOpen ||
-    !firstStorageNoticeHidden ||
+    !permanentStorageNoticeVisible ||
     !storageIntroText.includes("не отправляются на сервер") ||
     !storageIntroText.includes("другом браузере") ||
     !storageIntroText.includes("очистке данных браузера") ||
@@ -63,7 +63,7 @@ const { chromium } = require("playwright");
     !storageIntroText.includes("json") ||
     !storageIntroText.includes("mac")
   ) {
-    throw new Error(`Storage intro is incomplete: open=${storageIntroOpen}, hidden=${firstStorageNoticeHidden}, text=${storageIntroText}`);
+    throw new Error(`Storage intro is incomplete: open=${storageIntroOpen}, notice=${permanentStorageNoticeVisible}, text=${storageIntroText}`);
   }
   if (process.env.SCREENSHOT_DIR) {
     await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-intro-desktop.png") });
@@ -86,7 +86,7 @@ const { chromium } = require("playwright");
     !storageNote.includes("md или pdf") ||
     !storageNote.includes("json") ||
     !storageNote.includes("сохранить pdf") ||
-    !await page.locator("#storageNotice").evaluate((notice) => notice.classList.contains("hidden"))
+    !await page.locator(".storage-note").isVisible()
   ) {
     throw new Error(`Storage note is incomplete: ${storageNote}`);
   }
@@ -387,10 +387,8 @@ const { chromium } = require("playwright");
   }
 
   const backupPromise = page.waitForEvent("download");
-  const backupStatusBefore = await page.locator("#backupStatusTitle").textContent();
-  if (backupStatusBefore !== "Резервной копии ещё нет") {
-    throw new Error(`Unexpected initial backup status: ${backupStatusBefore}`);
-  }
+  const backupStatusBeforeHidden = await page.locator("#backupStatus").evaluate((status) => status.classList.contains("hidden"));
+  if (!backupStatusBeforeHidden) throw new Error("Backup status was shown before four entries existed");
   await page.locator("#backupButton").click();
   const backupDownload = await backupPromise;
   const backupFileName = backupDownload.suggestedFilename();
@@ -404,23 +402,11 @@ const { chromium } = require("playwright");
   ) {
     throw new Error("Backup does not include the combined scenario and both registries");
   }
-  const backupStatusAfter = await page.locator("#backupStatusTitle").textContent();
-  if (backupStatusAfter !== "Копия актуальна" || !backupFileName.startsWith("Практики_резервная_копия_")) {
-    throw new Error(`Backup status was not updated: ${backupStatusAfter}, ${backupFileName}`);
+  if (!backupFileName.startsWith("Практики_резервная_копия_")) {
+    throw new Error(`Unexpected backup file name: ${backupFileName}`);
   }
-  await page.evaluate(() => {
-    const staleDate = new Date(Date.now() - (8 * 86400000)).toISOString();
-    localStorage.setItem("stress-diary-app.last-backup-at.v1", staleDate);
-    renderBackupStatus();
-  });
-  const staleBackupStatus = await page.locator("#backupStatusTitle").textContent();
-  if (staleBackupStatus !== "Пора обновить резервную копию") {
-    throw new Error(`Stale backup reminder was not shown: ${staleBackupStatus}`);
-  }
-  await page.evaluate((exportedAt) => {
-    localStorage.setItem("stress-diary-app.last-backup-at.v1", exportedAt);
-    renderBackupStatus();
-  }, backupPayload.exportedAt);
+  const backupStatusAfterHidden = await page.locator("#backupStatus").evaluate((status) => status.classList.contains("hidden"));
+  if (!backupStatusAfterHidden) throw new Error("Backup status appeared with fewer than four entries");
 
   if (process.env.SCREENSHOT_DIR) {
     await page.screenshot({
@@ -471,10 +457,6 @@ const { chromium } = require("playwright");
 
   await page.locator(".entry-card").filter({ hasText: "Smoke entry" }).click();
   await page.locator("#tagsInput").fill("работа, тревога");
-  const backupStatusAfterChange = await page.locator("#backupStatusTitle").textContent();
-  if (backupStatusAfterChange !== "Есть изменения после копии") {
-    throw new Error(`Backup changes were not detected: ${backupStatusAfterChange}`);
-  }
   const notesText = "Инсайт: я быстрее замечаю тревогу.\nОбсудить на встрече.";
   await page.locator("textarea[data-path='notes']").fill(notesText);
   const lastFormTextareaPath = await page.locator("#formRoot textarea").last().getAttribute("data-path");
@@ -727,12 +709,12 @@ const { chromium } = require("playwright");
   }
   await importPage.close();
 
-  const reminderPage = await browser.newPage();
-  await reminderPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
-  await reminderPage.evaluate(() => localStorage.clear());
-  await reminderPage.reload();
-  await reminderPage.locator("#storageIntroCloseButton").click();
-  await reminderPage.evaluate(() => {
+  const backupReminderPage = await browser.newPage();
+  await backupReminderPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
+  await backupReminderPage.evaluate(() => localStorage.clear());
+  await backupReminderPage.reload();
+  await backupReminderPage.locator("#storageIntroCloseButton").click();
+  await backupReminderPage.evaluate(() => {
     for (let index = 1; index <= 3; index += 1) {
       createEntry("diary", {
         title: `Запись ${index}`,
@@ -741,30 +723,47 @@ const { chromium } = require("playwright");
       });
     }
   });
-  const firstIntervalNoticeVisible = await reminderPage.locator("#storageNotice").evaluate((notice) => !notice.classList.contains("hidden"));
-  if (!firstIntervalNoticeVisible) throw new Error("Storage notice was not shown after three new entries");
-  if (process.env.SCREENSHOT_DIR) {
-    await reminderPage.locator("#storageNotice").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-reminder-desktop.png") });
-    await reminderPage.setViewportSize({ width: 390, height: 844 });
-    await reminderPage.locator("#storageNotice").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-reminder-mobile.png") });
-    await reminderPage.setViewportSize({ width: 1280, height: 720 });
-  }
-  await reminderPage.locator("#storageNoticeDismissButton").click();
-  await reminderPage.evaluate(() => {
-    for (let index = 4; index <= 6; index += 1) {
-      createEntry("diary", {
-        title: `Запись ${index}`,
-        fields: { situation: `Ситуация ${index}` },
-        silent: true
-      });
-    }
+  const backupStatusHiddenAtThree = await backupReminderPage.locator("#backupStatus").evaluate((status) => status.classList.contains("hidden"));
+  if (!backupStatusHiddenAtThree) throw new Error("Backup reminder appeared at three entries");
+  await backupReminderPage.evaluate(() => {
+    createEntry("diary", {
+      title: "Запись 4",
+      fields: { situation: "Ситуация 4" },
+      silent: true
+    });
   });
-  const secondIntervalNoticeVisible = await reminderPage.locator("#storageNotice").evaluate((notice) => !notice.classList.contains("hidden"));
-  const reminderCounter = await reminderPage.evaluate(() => localStorage.getItem("stress-diary-app.storage-notice-entry-count.v1"));
-  if (!secondIntervalNoticeVisible || reminderCounter !== "0") {
-    throw new Error(`Storage notice did not repeat after six entries: visible=${secondIntervalNoticeVisible}, counter=${reminderCounter}`);
+  const backupReminderVisible = await backupReminderPage.locator("#backupStatus").evaluate((status) => !status.classList.contains("hidden"));
+  const backupReminderTitle = await backupReminderPage.locator("#backupStatusTitle").textContent();
+  const backupReminderDetail = await backupReminderPage.locator("#backupStatusDetail").textContent();
+  if (!backupReminderVisible || backupReminderTitle !== "Создано более 3 записей" || backupReminderDetail !== "Лучше сохранить резервную копию.") {
+    throw new Error(`Backup reminder threshold is incorrect: visible=${backupReminderVisible}, title=${backupReminderTitle}, detail=${backupReminderDetail}`);
   }
-  await reminderPage.close();
+  if (process.env.SCREENSHOT_DIR) {
+    await backupReminderPage.locator(".sidebar").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "backup-threshold-desktop.png") });
+    await backupReminderPage.setViewportSize({ width: 390, height: 844 });
+    await backupReminderPage.locator(".sidebar").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "backup-threshold-mobile.png") });
+    await backupReminderPage.setViewportSize({ width: 1280, height: 720 });
+  }
+  const thresholdBackupPromise = backupReminderPage.waitForEvent("download");
+  await backupReminderPage.locator("#backupButton").click();
+  await thresholdBackupPromise;
+  const backupStatusAfter = await backupReminderPage.locator("#backupStatusTitle").textContent();
+  if (backupStatusAfter !== "Копия актуальна") throw new Error(`Backup status was not updated: ${backupStatusAfter}`);
+  await backupReminderPage.locator("#titleInput").fill("Запись 4 изменена");
+  const backupStatusAfterChange = await backupReminderPage.locator("#backupStatusTitle").textContent();
+  if (backupStatusAfterChange !== "Есть изменения после копии") {
+    throw new Error(`Backup changes were not detected: ${backupStatusAfterChange}`);
+  }
+  await backupReminderPage.evaluate(() => {
+    const staleDate = new Date(Date.now() - (8 * 86400000)).toISOString();
+    localStorage.setItem("stress-diary-app.last-backup-at.v1", staleDate);
+    renderBackupStatus();
+  });
+  const staleBackupStatus = await backupReminderPage.locator("#backupStatusTitle").textContent();
+  if (staleBackupStatus !== "Пора обновить резервную копию") {
+    throw new Error(`Stale backup reminder was not shown: ${staleBackupStatus}`);
+  }
+  await backupReminderPage.close();
 
   await browser.close();
 
@@ -795,13 +794,15 @@ const { chromium } = require("playwright");
     triggerRowsStored: triggerRowsStored.length,
     registryPrintTitle,
     backupVersion: backupPayload.version,
+    backupStatusBeforeHidden,
+    backupStatusAfterHidden,
     backupStatusAfter,
     staleBackupStatus,
     backupStatusAfterChange,
     storageIntroOpen,
     storageIntroReopened,
-    firstIntervalNoticeVisible,
-    secondIntervalNoticeVisible,
+    backupStatusHiddenAtThree,
+    backupReminderVisible,
     migratedActionRows: migrationResult.actionRows.length,
     migratedLegacyReports: reportMigrationResult.entries.length,
     importedTriggerRows: importResult.triggerRows.length,

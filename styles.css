@@ -1767,26 +1767,6 @@ input[type="range"] {
   font-weight: 400;
 }
 
-.storage-note-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.storage-note-dismiss {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  border-color: var(--line-soft);
-  color: var(--muted);
-}
-
-.storage-note-dismiss:hover {
-  border-color: var(--ink);
-  background: var(--ink);
-  color: var(--paper);
-}
-
 .notice {
   border: 1px solid var(--line-soft);
   border-radius: 8px;
@@ -2190,12 +2170,9 @@ input[type="range"] {
     align-items: start;
   }
 
-  .storage-note-controls {
-    grid-column: 1 / -1;
-  }
-
   .storage-note-button {
-    flex: 1 1 auto;
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .storage-intro-points p {
