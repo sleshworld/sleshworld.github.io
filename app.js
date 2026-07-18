@@ -5,7 +5,10 @@ const TRIGGERS_STORAGE_KEY = "stress-diary-app.trigger-rows.v1";
 const VIEW_STORAGE_KEY = "stress-diary-app.active-view.v1";
 const LAST_BACKUP_AT_KEY = "stress-diary-app.last-backup-at.v1";
 const LAST_BACKUP_FINGERPRINT_KEY = "stress-diary-app.last-backup-fingerprint.v1";
+const STORAGE_INTRO_SEEN_KEY = "stress-diary-app.storage-intro-seen.v1";
+const STORAGE_NOTICE_ENTRY_COUNT_KEY = "stress-diary-app.storage-notice-entry-count.v1";
 const BACKUP_REMINDER_DAYS = 7;
+const STORAGE_NOTICE_ENTRY_INTERVAL = 3;
 
 const FEELINGS = ["страх", "обида", "вина", "стыд", "тревога", "разочарование", "грусть", "агрессия"];
 
@@ -645,6 +648,8 @@ let toastTimer = 0;
 let listRenderTimer = 0;
 let printCleanupTimer = 0;
 let titleBeforePrint = "";
+let appDataLoaded = false;
+let knownPersistedEntryIds = new Set();
 
 const elements = {};
 
@@ -656,6 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   render();
   bindEvents();
+  showStorageIntroIfNeeded();
 });
 
 function bindElements() {
@@ -680,6 +686,8 @@ function bindElements() {
   elements.backupStatusSign = document.getElementById("backupStatusSign");
   elements.backupStatusTitle = document.getElementById("backupStatusTitle");
   elements.backupStatusDetail = document.getElementById("backupStatusDetail");
+  elements.storageNotice = document.getElementById("storageNotice");
+  elements.storageIntroDialog = document.getElementById("storageIntroDialog");
 }
 
 function bindEvents() {
@@ -698,13 +706,21 @@ function bindEvents() {
   document.getElementById("copyButton").addEventListener("click", copyActive);
   document.getElementById("downloadMarkdownButton").addEventListener("click", downloadActiveMarkdown);
   document.getElementById("printButton").addEventListener("click", printActive);
-  document.getElementById("storagePrintButton").addEventListener("click", printActive);
+  document.getElementById("storagePrintButton").addEventListener("click", () => {
+    hideStorageNotice();
+    printActive();
+  });
+  document.getElementById("storageNoticeDismissButton").addEventListener("click", hideStorageNotice);
   document.getElementById("backupButton").addEventListener("click", downloadBackup);
   document.getElementById("importButton").addEventListener("click", () => elements.importFileInput.click());
   elements.importFileInput.addEventListener("change", importBackup);
   elements.deleteDialog.addEventListener("close", handleDeleteDialogClose);
   elements.deleteDialog.addEventListener("click", (event) => {
     if (event.target === elements.deleteDialog) elements.deleteDialog.close("cancel");
+  });
+  elements.storageIntroDialog.addEventListener("close", handleStorageIntroClose);
+  elements.storageIntroDialog.addEventListener("click", (event) => {
+    if (event.target === elements.storageIntroDialog) elements.storageIntroDialog.close("cancel");
   });
 
   elements.searchInput.addEventListener("input", renderList);
@@ -767,6 +783,8 @@ function load() {
     activeId = entries[0]?.id || "";
   }
   if (legacyActionEntries.length || migration.changed) save();
+  knownPersistedEntryIds = new Set(getPersistedEntries().map((entry) => entry.id));
+  appDataLoaded = true;
 }
 
 function save() {
@@ -780,6 +798,7 @@ function save() {
   } else {
     localStorage.removeItem(ACTIVE_KEY);
   }
+  trackNewPersistedEntries(persistedEntries);
   renderBackupStatus();
 }
 
@@ -1002,6 +1021,7 @@ function handleDeleteDialogClose() {
   if (elements.deleteDialog.returnValue !== "confirm" || !entryId) return;
   if (!entries.some((entry) => entry.id === entryId)) return;
   entries = entries.filter((entry) => entry.id !== entryId);
+  knownPersistedEntryIds.delete(entryId);
   activeId = entries[0]?.id || "";
   save();
   render();
@@ -1013,6 +1033,39 @@ function render() {
   renderList();
   renderEditor();
   renderBackupStatus();
+}
+
+function showStorageIntroIfNeeded() {
+  if (localStorage.getItem(STORAGE_INTRO_SEEN_KEY) === "1") return;
+  elements.storageIntroDialog.showModal();
+}
+
+function handleStorageIntroClose() {
+  localStorage.setItem(STORAGE_INTRO_SEEN_KEY, "1");
+}
+
+function trackNewPersistedEntries(persistedEntries) {
+  if (!appDataLoaded) return;
+  let addedCount = 0;
+  persistedEntries.forEach((entry) => {
+    if (knownPersistedEntryIds.has(entry.id)) return;
+    knownPersistedEntryIds.add(entry.id);
+    addedCount += 1;
+  });
+  if (!addedCount) return;
+
+  const storedCount = Number.parseInt(localStorage.getItem(STORAGE_NOTICE_ENTRY_COUNT_KEY) || "0", 10) || 0;
+  const nextCount = storedCount + addedCount;
+  localStorage.setItem(STORAGE_NOTICE_ENTRY_COUNT_KEY, String(nextCount % STORAGE_NOTICE_ENTRY_INTERVAL));
+  if (nextCount >= STORAGE_NOTICE_ENTRY_INTERVAL) showStorageNotice();
+}
+
+function showStorageNotice() {
+  elements.storageNotice.classList.remove("hidden");
+}
+
+function hideStorageNotice() {
+  elements.storageNotice.classList.add("hidden");
 }
 
 function renderNavigation() {
@@ -1710,7 +1763,7 @@ function startPrint(title) {
   document.body.classList.add("printing");
   titleBeforePrint = document.title;
   document.title = title;
-  showToast("В диалоге печати выбери 'Сохранить как PDF'");
+  showToast("В Chrome выбери «Сохранить как PDF»; на Mac в системном окне - меню «PDF»");
   window.clearTimeout(printCleanupTimer);
   window.setTimeout(() => {
     window.print();

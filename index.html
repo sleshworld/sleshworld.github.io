@@ -79,16 +79,18 @@
           </label>
         </div>
 
-        <aside class="storage-note" aria-label="Как хранятся записи">
+        <aside class="storage-note hidden" id="storageNotice" aria-label="Как хранятся записи">
           <span class="storage-note-sign" aria-hidden="true">!</span>
           <div>
             <p class="storage-note-title">Записи и списки хранятся только в этом браузере</p>
             <p>
-              Они не отправляются на сервер и не появятся сами на другом устройстве.
-              Если при чистке истории или кэша удалить данные сайта, записи могут стереться.
+              Сохраняйте отдельные записи в MD или PDF, а резервную копию всех данных - в JSON.
             </p>
           </div>
-          <button class="button storage-note-button" type="button" id="storagePrintButton">Сохранить PDF</button>
+          <div class="storage-note-controls">
+            <button class="button storage-note-button" type="button" id="storagePrintButton">Сохранить PDF</button>
+            <button class="icon-button storage-note-dismiss" type="button" id="storageNoticeDismissButton" title="Скрыть напоминание" aria-label="Скрыть напоминание">&times;</button>
+          </div>
         </aside>
 
         <div id="formRoot"></div>
@@ -117,6 +119,22 @@
       <div class="confirm-dialog-actions">
         <button class="button" type="submit" value="cancel" id="cancelDeleteButton" autofocus>Оставить</button>
         <button class="button danger confirm-delete-button" type="submit" value="confirm" id="confirmDeleteButton">Удалить запись</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="confirm-dialog storage-intro-dialog" id="storageIntroDialog" aria-labelledby="storageIntroTitle" aria-describedby="storageIntroDescription">
+    <form class="confirm-dialog-panel" method="dialog">
+      <p class="confirm-dialog-kicker">Перед началом</p>
+      <h2 id="storageIntroTitle">Записи хранятся только в этом браузере</h2>
+      <p id="storageIntroDescription">Они не отправляются на сервер и не появятся на другом устройстве или в другом браузере. При очистке данных браузера записи могут исчезнуть.</p>
+      <div class="storage-intro-points">
+        <p><strong>MD или PDF</strong><span>Для сохранения отдельной записи.</span></p>
+        <p><strong>JSON</strong><span>Для резервной копии всех записей и списков.</span></p>
+      </div>
+      <p class="storage-intro-pdf">В Chrome выберите «Сохранить как PDF». В системном окне Mac нужная команда находится в меню «PDF» внизу.</p>
+      <div class="confirm-dialog-actions">
+        <button class="button primary" type="submit" value="confirm" id="storageIntroCloseButton" autofocus>Понятно</button>
       </div>
     </form>
   </dialog>

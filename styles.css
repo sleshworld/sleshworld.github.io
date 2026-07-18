@@ -1528,6 +1528,39 @@ input[type="range"] {
   color: var(--paper);
 }
 
+.storage-intro-dialog .confirm-dialog-kicker {
+  color: var(--ink);
+}
+
+.storage-intro-points {
+  border-top: 1px solid var(--line-soft);
+}
+
+.storage-intro-points p {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 13px 0;
+  font-size: 13px;
+}
+
+.storage-intro-points strong {
+  font-weight: 700;
+}
+
+.storage-intro-points span,
+.storage-intro-pdf {
+  color: var(--muted);
+}
+
+.storage-intro-pdf {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .field > span,
 .field-label {
   font-size: 11px;
@@ -1732,6 +1765,26 @@ input[type="range"] {
   color: var(--muted);
   font-size: 13px;
   font-weight: 400;
+}
+
+.storage-note-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.storage-note-dismiss {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-color: var(--line-soft);
+  color: var(--muted);
+}
+
+.storage-note-dismiss:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .notice {
@@ -2137,9 +2190,17 @@ input[type="range"] {
     align-items: start;
   }
 
-  .storage-note-button {
+  .storage-note-controls {
     grid-column: 1 / -1;
-    width: 100%;
+  }
+
+  .storage-note-button {
+    flex: 1 1 auto;
+  }
+
+  .storage-intro-points p {
+    grid-template-columns: 1fr;
+    gap: 3px;
   }
 
   .section {

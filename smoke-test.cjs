@@ -50,14 +50,43 @@ const { chromium } = require("playwright");
   }
   await faviconPage.close();
 
+  const storageIntroOpen = await page.locator("#storageIntroDialog").evaluate((dialog) => dialog.open);
+  const storageIntroText = (await page.locator("#storageIntroDialog").innerText()).toLowerCase();
+  const firstStorageNoticeHidden = await page.locator("#storageNotice").evaluate((notice) => notice.classList.contains("hidden"));
+  if (
+    !storageIntroOpen ||
+    !firstStorageNoticeHidden ||
+    !storageIntroText.includes("не отправляются на сервер") ||
+    !storageIntroText.includes("другом браузере") ||
+    !storageIntroText.includes("очистке данных браузера") ||
+    !storageIntroText.includes("md или pdf") ||
+    !storageIntroText.includes("json") ||
+    !storageIntroText.includes("mac")
+  ) {
+    throw new Error(`Storage intro is incomplete: open=${storageIntroOpen}, hidden=${firstStorageNoticeHidden}, text=${storageIntroText}`);
+  }
+  if (process.env.SCREENSHOT_DIR) {
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-intro-desktop.png") });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-intro-mobile.png") });
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  await page.locator("#storageIntroCloseButton").click();
+  await page.waitForFunction(() => localStorage.getItem("stress-diary-app.storage-intro-seen.v1") === "1");
+  await page.reload();
+  const storageIntroReopened = await page.locator("#storageIntroDialog").evaluate((dialog) => dialog.open);
+  if (storageIntroReopened) throw new Error("Storage intro was shown more than once");
+
   const blankSaved = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
-  const storageNote = (await page.locator(".storage-note").innerText()).toLowerCase();
+  const storageNote = (await page.locator(".storage-note").textContent()).toLowerCase();
   if (
     !storageNote.includes("только в этом браузере") ||
-    !storageNote.includes("не отправляются на сервер") ||
-    !storageNote.includes("сохранить pdf")
+    !storageNote.includes("md или pdf") ||
+    !storageNote.includes("json") ||
+    !storageNote.includes("сохранить pdf") ||
+    !await page.locator("#storageNotice").evaluate((notice) => notice.classList.contains("hidden"))
   ) {
     throw new Error(`Storage note is incomplete: ${storageNote}`);
   }
@@ -103,12 +132,6 @@ const { chromium } = require("playwright");
   });
   if (savedAfterDeleteConfirm !== 1 || await page.locator("#titleInput").inputValue() !== "Smoke entry") {
     throw new Error("Confirming delete did not remove only the selected entry");
-  }
-  if (process.env.SCREENSHOT_DIR) {
-    await page.locator(".sidebar").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "backup-reminder-desktop.png") });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator(".sidebar").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "backup-reminder-mobile.png") });
-    await page.setViewportSize({ width: 1280, height: 720 });
   }
   await page.locator("#newDiagnosticButton").click();
   const diagnosticIntensityCount = await page.locator("input[type='range'][data-path='fields.feelingIntensity']").count();
@@ -704,6 +727,45 @@ const { chromium } = require("playwright");
   }
   await importPage.close();
 
+  const reminderPage = await browser.newPage();
+  await reminderPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
+  await reminderPage.evaluate(() => localStorage.clear());
+  await reminderPage.reload();
+  await reminderPage.locator("#storageIntroCloseButton").click();
+  await reminderPage.evaluate(() => {
+    for (let index = 1; index <= 3; index += 1) {
+      createEntry("diary", {
+        title: `Запись ${index}`,
+        fields: { situation: `Ситуация ${index}` },
+        silent: true
+      });
+    }
+  });
+  const firstIntervalNoticeVisible = await reminderPage.locator("#storageNotice").evaluate((notice) => !notice.classList.contains("hidden"));
+  if (!firstIntervalNoticeVisible) throw new Error("Storage notice was not shown after three new entries");
+  if (process.env.SCREENSHOT_DIR) {
+    await reminderPage.locator("#storageNotice").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-reminder-desktop.png") });
+    await reminderPage.setViewportSize({ width: 390, height: 844 });
+    await reminderPage.locator("#storageNotice").screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "storage-reminder-mobile.png") });
+    await reminderPage.setViewportSize({ width: 1280, height: 720 });
+  }
+  await reminderPage.locator("#storageNoticeDismissButton").click();
+  await reminderPage.evaluate(() => {
+    for (let index = 4; index <= 6; index += 1) {
+      createEntry("diary", {
+        title: `Запись ${index}`,
+        fields: { situation: `Ситуация ${index}` },
+        silent: true
+      });
+    }
+  });
+  const secondIntervalNoticeVisible = await reminderPage.locator("#storageNotice").evaluate((notice) => !notice.classList.contains("hidden"));
+  const reminderCounter = await reminderPage.evaluate(() => localStorage.getItem("stress-diary-app.storage-notice-entry-count.v1"));
+  if (!secondIntervalNoticeVisible || reminderCounter !== "0") {
+    throw new Error(`Storage notice did not repeat after six entries: visible=${secondIntervalNoticeVisible}, counter=${reminderCounter}`);
+  }
+  await reminderPage.close();
+
   await browser.close();
 
   if (errors.length > 0) {
@@ -736,6 +798,10 @@ const { chromium } = require("playwright");
     backupStatusAfter,
     staleBackupStatus,
     backupStatusAfterChange,
+    storageIntroOpen,
+    storageIntroReopened,
+    firstIntervalNoticeVisible,
+    secondIntervalNoticeVisible,
     migratedActionRows: migrationResult.actionRows.length,
     migratedLegacyReports: reportMigrationResult.entries.length,
     importedTriggerRows: importResult.triggerRows.length,
