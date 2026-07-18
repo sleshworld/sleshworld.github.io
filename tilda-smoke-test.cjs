@@ -36,6 +36,9 @@ const STORAGE = {
 
   const host = page.locator("#psychological-practices-host");
   await host.locator(".app-shell").waitFor();
+  if (await page.locator("#psychological-practices-loader").count()) {
+    throw new Error("The compressed Tilda loader remained visible after startup");
+  }
 
   const storageIntro = host.locator("#storageIntroDialog");
   if (!(await storageIntro.evaluate((dialog) => dialog.open))) {
@@ -207,6 +210,12 @@ function validateBundleFiles(embedPath, copyPastePath) {
   const embed = fs.readFileSync(embedPath, "utf8");
   const copyPaste = fs.readFileSync(copyPastePath, "utf8");
   if (embed !== copyPaste) throw new Error("The copy-paste TXT file does not match tilda-embed.html");
+  if (Buffer.byteLength(embed, "utf8") > 90000) {
+    throw new Error("The copy-paste bundle is too close to Tilda's T123 size limit");
+  }
+  if (!embed.includes("DecompressionStream")) {
+    throw new Error("The Tilda bundle is not compressed");
+  }
   if (/@import|<script[^>]+src=|<link[^>]+stylesheet/i.test(embed)) {
     throw new Error("The Tilda bundle still depends on an external script or stylesheet");
   }

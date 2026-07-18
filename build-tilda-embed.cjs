@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
 const projectDir = __dirname;
 const sourceHtml = read("index.html");
@@ -12,12 +13,14 @@ const appMarkup = extractAppMarkup(sourceHtml);
 const shadowCss = createShadowCss(sourceCss);
 const embeddedJs = createEmbeddedJs(sourceJs);
 const version = createVersion(sourceHtml, sourceCss, sourceJs, sourceBuilder);
-const output = createBundle(appMarkup, shadowCss, embeddedJs, version);
+const unpackedOutput = createBundle(appMarkup, shadowCss, embeddedJs, version);
+const output = createCompressedBundle(unpackedOutput, version);
 const outputSize = Buffer.byteLength(output, "utf8");
+const unpackedSize = Buffer.byteLength(unpackedOutput, "utf8");
 
 fs.writeFileSync(path.join(projectDir, "tilda-embed.html"), output, "utf8");
 fs.writeFileSync(path.join(projectDir, "TILDA-COPY-PASTE.txt"), output, "utf8");
-console.log(`Created Tilda bundle ${version} in HTML and TXT formats (${outputSize} bytes each)`);
+console.log(`Created compressed Tilda bundle ${version} (${outputSize} bytes, ${unpackedSize} unpacked)`);
 
 function read(fileName) {
   return fs.readFileSync(path.join(projectDir, fileName), "utf8");
@@ -205,6 +208,60 @@ ${indent(markup, 2)}
   }
 
 ${indent(js, 2)}
+})();
+</script>
+`;
+}
+
+function createCompressedBundle(bundle, version) {
+  const payload = zlib.gzipSync(Buffer.from(bundle, "utf8"), { level: 9 }).toString("base64");
+  return `<!--
+  Психологические практики для Tilda, сжатая автономная версия.
+  Вставьте этот файл целиком в один блок T123 и опубликуйте страницу.
+-->
+<style>
+  #psychological-practices-loader {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 24px;
+    background: #f7f7f7;
+    color: #161616;
+    font: 600 16px/1.45 Arial, sans-serif;
+  }
+</style>
+<div id="psychological-practices-loader" data-version="${version}" role="status">Загрузка практик...</div>
+<script>
+(() => {
+  "use strict";
+  const marker = document.currentScript;
+  const loader = document.getElementById("psychological-practices-loader");
+  const fail = () => {
+    if (loader) loader.textContent = "Не удалось открыть практики. Обновите браузер до актуальной версии.";
+  };
+  if (!marker || typeof DecompressionStream === "undefined") {
+    fail();
+    return;
+  }
+  (async () => {
+    const packed = Uint8Array.from(atob("${payload}"), (character) => character.charCodeAt(0));
+    const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream("gzip"));
+    const html = await new Response(stream).text();
+    const staging = document.createElement("template");
+    staging.innerHTML = html;
+    const scripts = [...staging.content.querySelectorAll("script")].map((script) => {
+      const code = script.textContent;
+      script.remove();
+      return code;
+    });
+    marker.before(staging.content);
+    for (const code of scripts) {
+      const script = document.createElement("script");
+      script.textContent = code;
+      marker.before(script);
+    }
+    if (loader) loader.remove();
+    marker.remove();
+  })().catch(fail);
 })();
 </script>
 `;
