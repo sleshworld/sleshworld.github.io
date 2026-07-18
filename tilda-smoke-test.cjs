@@ -1,17 +1,19 @@
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const { chromium } = require("playwright");
 
+const STORAGE = {
+  entries: "psychological-practices.entries.v1",
+  actions: "psychological-practices.action-rows.v1",
+  triggers: "psychological-practices.trigger-rows.v1"
+};
+
 (async () => {
   const embedPath = path.join(__dirname, "tilda-embed.html");
   const copyPastePath = path.join(__dirname, "TILDA-COPY-PASTE.txt");
-  if (!fs.existsSync(embedPath)) {
-    throw new Error("tilda-embed.html is missing; run build-tilda-embed.cjs first");
-  }
-  if (fs.readFileSync(embedPath, "utf8") !== fs.readFileSync(copyPastePath, "utf8")) {
-    throw new Error("The copy-paste TXT file does not match tilda-embed.html");
-  }
+  validateBundleFiles(embedPath, copyPastePath);
 
   const browser = await chromium.launch({
     headless: true,
@@ -19,7 +21,10 @@ const { chromium } = require("playwright");
   });
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
-
+  const screenshotDir = process.env.SCREENSHOT_DIR || "";
+  const pdfOutput = process.env.PDF_OUTPUT || "";
+  if (screenshotDir) fs.mkdirSync(screenshotDir, { recursive: true });
+  if (pdfOutput) fs.mkdirSync(path.dirname(pdfOutput), { recursive: true });
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
@@ -29,74 +34,105 @@ const { chromium } = require("playwright");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
-  const host = page.locator("#mdpsy-stress-diary-host");
-  const app = host.locator(".app-shell");
-  await app.waitFor();
+  const host = page.locator("#psychological-practices-host");
+  await host.locator(".app-shell").waitFor();
 
-  if (process.env.SCREENSHOT_DIR || process.env.PDF_OUTPUT) {
-    if (process.env.SCREENSHOT_DIR) fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
-    if (process.env.PDF_OUTPUT) fs.mkdirSync(path.dirname(process.env.PDF_OUTPUT), { recursive: true });
-    await host.locator("#newActionsButton").click();
-    await host.locator("textarea[data-path='fields.situation']").fill("Нужно попросить коллегу помочь с задачей");
-    await host.locator("input[data-path='fields.feelings.0.name']").fill("Тревога");
-    await host.locator("input[data-path='fields.feelings.0.intensity']").fill("75");
-    await host.locator("textarea[data-path='fields.selfDefinition']").fill("Некомпетентным");
-    await host.locator("textarea[data-path='fields.protectiveAction']").fill("Долго готовлю формулировку и наблюдаю, занят ли коллега");
-    await host.locator("textarea[data-path='fields.avoidantAction']").fill("Откладываю вопрос и переключаюсь на другие задачи");
-    await host.locator("textarea[data-path='fields.adaptiveBehavior']").fill("Коротко описать проблему и прямо попросить о помощи");
-    if (process.env.SCREENSHOT_DIR) {
-      await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "actions-desktop.png") });
-      await page.setViewportSize({ width: 390, height: 844 });
-      await host.locator(".feeling-row").scrollIntoViewIfNeeded();
-      await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "actions-mobile.png") });
-      await page.setViewportSize({ width: 1280, height: 900 });
-    }
-    if (process.env.PDF_OUTPUT) {
-      await page.evaluate(() => { window.print = () => {}; });
-      await host.locator("#printButton").click();
-      await page.waitForTimeout(120);
-      await page.emulateMedia({ media: "print" });
-      await page.pdf({ path: process.env.PDF_OUTPUT, format: "A4", printBackground: true });
-      await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
-      await page.emulateMedia({ media: "screen" });
-    }
-    await page.evaluate(() => localStorage.clear());
-    await page.reload();
-    await app.waitFor();
+  const storageIntro = host.locator("#storageIntroDialog");
+  if (!(await storageIntro.evaluate((dialog) => dialog.open))) {
+    throw new Error("The local-storage introduction did not open on the first visit");
+  }
+  if (!(await host.locator("#homeView").isVisible())) {
+    throw new Error("The Tilda bundle did not open on Home");
+  }
+  await host.locator("#storageIntroCloseButton").click();
+  if (screenshotDir) {
+    await page.screenshot({ path: path.join(screenshotDir, "tilda-home-desktop.png"), fullPage: true });
   }
 
-  if (!(await host.locator("#newActionsButton").isVisible())) {
-    throw new Error("The actions entry button is missing from the Tilda bundle");
-  }
-
-  await page.addStyleTag({ content: ".button, input, textarea { display: none !important; }" });
-  if (!(await host.locator("#newDiaryButton").isVisible())) {
+  await page.addStyleTag({
+    content: ".button, button, input, textarea, dialog { display: none !important; }"
+  });
+  if (!(await host.locator("[data-home-entry='diary']").isVisible())) {
     throw new Error("Tilda-like global styles leaked into the embedded application");
   }
 
-  await host.locator("#titleInput").fill("Tilda test");
-  await host.locator("textarea[data-path='fields.situation']").first().fill("Проверка встроенной формы");
+  await host.locator("[data-home-entry='diary']").click();
+  await host.locator("#titleInput").fill("Tilda: рабочий дневник");
+  await host.locator("textarea[data-path='fields.situation']").fill("Проверка дневника внутри Tilda");
   await host.locator("#tagsInput").fill("tilda, тест");
 
-  const storedEntries = await page.evaluate(() => {
-    return JSON.parse(localStorage.getItem("mdpsy.stress-diary.entries.v1") || "[]");
-  });
-  if (storedEntries.length !== 1 || storedEntries[0].title !== "Tilda test") {
-    throw new Error("The embedded application did not save its entry locally");
+  await host.locator("#newDiagnosticButton").click();
+  await host.locator("#titleInput").fill("Tilda: диагностика");
+  await host.locator("textarea[data-path='fields.situation']").fill("Проверка диагностики внутри Tilda");
+
+  await host.locator("#newScenarioButton").click();
+  await host.locator("#titleInput").fill("Tilda: сценарий");
+  await host.locator("textarea[data-path^='fields.']").first().fill("Первый наблюдаемый шаг сценария");
+  await host.locator("input[data-path='reportEnabled']").check();
+  await host.locator("textarea[data-path='report.actualEvents.0']").fill("Сценарий выполнен по плану");
+  if (screenshotDir) {
+    await page.screenshot({ path: path.join(screenshotDir, "tilda-scenario-desktop.png"), fullPage: true });
   }
 
-  const oldStorageUsed = await page.evaluate(() => localStorage.getItem("stress-diary-app.entries.v1"));
-  if (oldStorageUsed !== null) {
-    throw new Error("The embedded application used the non-namespaced storage key");
+  const entries = await readStored(page, STORAGE.entries);
+  if (
+    entries.length !== 3 ||
+    !entries.some((entry) => entry.type === "diary") ||
+    !entries.some((entry) => entry.type === "diagnostic") ||
+    !entries.some((entry) => entry.type === "scenario" && entry.reportEnabled)
+  ) {
+    throw new Error(`Entry persistence failed: ${JSON.stringify(entries.map((entry) => entry.type))}`);
+  }
+
+  await host.locator("#actionsPageButton").click();
+  await expectRegistryTitle(host, "Список действий");
+  await host.locator("textarea[data-registry='actions'][data-row-index='0'][data-key='situation']").fill("Попросить помощи");
+  await host.locator("textarea[data-registry='actions'][data-row-index='0'][data-key='adaptiveBehavior']").fill("Спросить прямо");
+
+  await host.locator("#triggersPageButton").click();
+  await expectRegistryTitle(host, "Список триггеров");
+  await host.locator("textarea[data-registry='triggers'][data-row-index='0'][data-key='situation']").fill("Разговор с незнакомым человеком");
+  await host.locator("input[data-registry='triggers'][data-row-index='0'][data-key='difficulty']").fill("45");
+
+  const actions = await readStored(page, STORAGE.actions);
+  const triggers = await readStored(page, STORAGE.triggers);
+  if (actions.length !== 1 || triggers.length !== 1 || triggers[0].difficulty !== "45") {
+    throw new Error(`Registry persistence failed: ${JSON.stringify({ actions, triggers })}`);
+  }
+
+  const backupPromise = page.waitForEvent("download");
+  await host.locator("#backupButton").click();
+  const backupDownload = await backupPromise;
+  const backupPath = await backupDownload.path();
+  const backup = JSON.parse(fs.readFileSync(backupPath, "utf8"));
+  if (backup.entries.length !== 3 || backup.actionRows.length !== 1 || backup.triggerRows.length !== 1) {
+    throw new Error("The JSON backup from the Tilda bundle is incomplete");
+  }
+
+  if (pdfOutput) {
+    await page.evaluate(() => { window.print = () => {}; });
+    await host.locator("#printButton").click();
+    await page.waitForFunction(() => document.body.classList.contains("psychological-practices-printing"));
+    await page.emulateMedia({ media: "print" });
+    await page.pdf({ path: pdfOutput, format: "A4", printBackground: true });
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await page.emulateMedia({ media: "screen" });
   }
 
   await page.evaluate(() => {
+    const hostElement = document.getElementById("psychological-practices-host");
+    const wrapper = document.createElement("section");
+    wrapper.id = "simulated-tilda-record";
+    hostElement.before(wrapper);
+    wrapper.appendChild(hostElement);
     window.__tildaPrintState = null;
     window.print = () => {
-      const hostElement = document.getElementById("mdpsy-stress-diary-host");
       window.__tildaPrintState = {
-        body: document.body.classList.contains("mdpsy-diary-printing"),
-        host: hostElement.classList.contains("printing")
+        bodyClass: document.body.classList.contains("psychological-practices-printing"),
+        hostClass: hostElement.classList.contains("printing"),
+        mobileClass: hostElement.classList.contains("mobile-print"),
+        movedToBody: hostElement.parentNode === document.body,
+        hasPrintContent: Boolean(hostElement.shadowRoot.getElementById("printRoot").textContent.trim())
       };
       window.dispatchEvent(new Event("afterprint"));
     };
@@ -104,30 +140,128 @@ const { chromium } = require("playwright");
   await host.locator("#printButton").click();
   await page.waitForFunction(() => window.__tildaPrintState !== null);
 
-  const printState = await page.evaluate(() => window.__tildaPrintState);
-  const cleanedUp = await page.evaluate(() => ({
-    body: document.body.classList.contains("mdpsy-diary-printing"),
-    host: document.getElementById("mdpsy-stress-diary-host").classList.contains("printing")
-  }));
-  if (!printState.body || !printState.host || cleanedUp.body || cleanedUp.host) {
-    throw new Error(`Print mode failed: ${JSON.stringify({ printState, cleanedUp })}`);
+  const printResult = await page.evaluate(() => {
+    const hostElement = document.getElementById("psychological-practices-host");
+    return {
+      during: window.__tildaPrintState,
+      restoredParent: hostElement.parentElement?.id,
+      bodyClassAfter: document.body.classList.contains("psychological-practices-printing"),
+      hostClassAfter: hostElement.classList.contains("printing")
+    };
+  });
+  if (
+    !printResult.during.bodyClass ||
+    !printResult.during.hostClass ||
+    !printResult.during.movedToBody ||
+    !printResult.during.hasPrintContent ||
+    printResult.during.mobileClass ||
+    printResult.restoredParent !== "simulated-tilda-record" ||
+    printResult.bodyClassAfter ||
+    printResult.hostClassAfter
+  ) {
+    throw new Error(`Tilda print isolation failed: ${JSON.stringify(printResult)}`);
   }
 
-  await browser.close();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await host.locator("#homeButton").click();
+  const mobileLayout = await host.evaluate((element) => ({
+    hostWidth: element.getBoundingClientRect().width,
+    appScrollWidth: element.shadowRoot.querySelector(".app-shell").scrollWidth,
+    homeVisible: !element.shadowRoot.getElementById("homeView").classList.contains("hidden")
+  }));
+  if (!mobileLayout.homeVisible || mobileLayout.appScrollWidth > mobileLayout.hostWidth + 1) {
+    throw new Error(`Mobile Tilda layout overflows: ${JSON.stringify(mobileLayout)}`);
+  }
+  if (screenshotDir) {
+    await page.screenshot({ path: path.join(screenshotDir, "tilda-home-mobile.png"), fullPage: true });
+  }
+
+  await testLegacyMigration(page, host);
+
   if (errors.length) throw new Error(errors.join("\n"));
+  await browser.close();
 
   console.log(JSON.stringify({
-    embedded: true,
-    copyPasteFile: true,
+    bundleMatchesCopyPaste: true,
+    autonomous: true,
     shadowRoot: true,
     globalStylesIsolated: true,
-    storedEntries: storedEntries.length,
-    printMode: true
+    home: true,
+    entries: entries.length,
+    actions: actions.length,
+    triggers: triggers.length,
+    backup: true,
+    printIsolation: true,
+    mobile: true,
+    legacyMigration: true
   }));
 })().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+function validateBundleFiles(embedPath, copyPastePath) {
+  if (!fs.existsSync(embedPath) || !fs.existsSync(copyPastePath)) {
+    throw new Error("Tilda bundle is missing; run build-tilda-embed.cjs first");
+  }
+  const embed = fs.readFileSync(embedPath, "utf8");
+  const copyPaste = fs.readFileSync(copyPastePath, "utf8");
+  if (embed !== copyPaste) throw new Error("The copy-paste TXT file does not match tilda-embed.html");
+  if (/@import|<script[^>]+src=|<link[^>]+stylesheet/i.test(embed)) {
+    throw new Error("The Tilda bundle still depends on an external script or stylesheet");
+  }
+  if (!/data-version="[a-f0-9]{12}"/.test(embed)) {
+    throw new Error("The Tilda bundle does not have a source version");
+  }
+  const sourceFiles = ["index.html", "styles.css", "app.js", "build-tilda-embed.cjs"]
+    .map((fileName) => fs.readFileSync(path.join(__dirname, fileName), "utf8"));
+  const expectedVersion = crypto.createHash("sha256")
+    .update(sourceFiles.join("\n"))
+    .digest("hex")
+    .slice(0, 12);
+  if (!embed.includes(`data-version="${expectedVersion}"`)) {
+    throw new Error("The Tilda bundle is stale; run build-tilda-embed.cjs");
+  }
+}
+
+async function expectRegistryTitle(host, title) {
+  if (await host.locator("#titleField").isVisible()) {
+    throw new Error(`The editable entry title is visible in ${title}`);
+  }
+  if ((await host.locator("#registryTitle").textContent()).trim() !== title) {
+    throw new Error(`The registry title is incorrect: ${await host.locator("#registryTitle").textContent()}`);
+  }
+}
+
+async function readStored(page, key) {
+  return page.evaluate((storageKey) => JSON.parse(localStorage.getItem(storageKey) || "[]"), key);
+}
+
+async function testLegacyMigration(page, host) {
+  await page.evaluate(() => {
+    localStorage.clear();
+    localStorage.setItem("mdpsy.stress-diary.entries.v1", JSON.stringify([{
+      id: "legacy-tilda-entry",
+      type: "diary",
+      title: "Старая запись Tilda",
+      date: "2026-07-18",
+      tags: "миграция",
+      createdAt: "2026-07-18T10:00:00.000Z",
+      updatedAt: "2026-07-18T10:00:00.000Z",
+      fields: { situation: "Запись из предыдущего Tilda-блока" },
+      rationalization: {},
+      rationalizationEnabled: false,
+      notes: ""
+    }]));
+    localStorage.setItem("mdpsy.stress-diary.active-id.v1", "legacy-tilda-entry");
+  });
+  await page.reload();
+  await host.locator(".app-shell").waitFor();
+  const migrated = await readStored(page, STORAGE.entries);
+  if (migrated.length !== 1 || migrated[0].id !== "legacy-tilda-entry") {
+    throw new Error(`Legacy Tilda data was not migrated: ${JSON.stringify(migrated)}`);
+  }
+}
 
 function findBrowserPath() {
   const candidates = [
