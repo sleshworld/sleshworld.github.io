@@ -1820,19 +1820,21 @@ function formatRegistryMarkdown(view) {
     `# ${meta.title}`,
     "",
     `Дата экспорта: ${formatDate(toDateInputValue(new Date()))}`,
-    ""
+    "",
+    `| № | ${columns.map((column) => formatMarkdownTableCell(column.label)).join(" | ")} |`,
+    `| --- | ${columns.map(() => "---").join(" | ")} |`
   ];
   rows.forEach((row, index) => {
-    lines.push(`## Строка ${index + 1}`);
-    lines.push("");
-    columns.forEach((column) => {
-      lines.push(`**${column.label}**`);
-      lines.push("");
-      lines.push(formatRegistryValue(column, row[column.key]));
-      lines.push("");
-    });
+    const cells = columns.map((column) => formatMarkdownTableCell(formatRegistryValue(column, row[column.key])));
+    lines.push(`| ${index + 1} | ${cells.join(" | ")} |`);
   });
   return lines.join("\n").trim() + "\n";
+}
+
+function formatMarkdownTableCell(value) {
+  return String(value ?? "-")
+    .replace(/\|/g, "\\|")
+    .replace(/\r?\n/g, "<br>");
 }
 
 function formatRegistryValue(column, value) {
@@ -1907,7 +1909,7 @@ function renderPrintRegistry(view) {
   const rows = getPersistedRegistryRows(getRegistryRows(view));
   const columns = getRegistryColumns(view);
   return `
-    <article class="print-entry">
+    <article class="print-entry print-registry print-registry-${escapeAttr(view)}">
       <header class="print-cover">
         <div class="print-cover-top">
           <span class="print-kicker">Стресс-дневник</span>
@@ -1929,8 +1931,8 @@ function renderPrintRegistry(view) {
           </div>
         </div>
       </header>
-      <p class="print-note">Пустые поля скрыты, чтобы экспорт оставался коротким и читабельным.</p>
-      ${renderPrintRegistryRows(rows, columns, view === "triggers" ? "Триггер" : "Строка действий")}
+      <p class="print-note">Пустые строки не включены. Порядок строк сохранён.</p>
+      ${renderPrintRegistryTable(rows, columns, view)}
     </article>
   `;
 }
@@ -2048,31 +2050,29 @@ function renderPrintSections(sections, values, entry) {
 }
 
 function renderPrintActionRows(rows) {
-  return renderPrintRegistryRows(rows, ACTION_COLUMNS, "Строка действий");
+  return renderPrintRegistryTable(rows, ACTION_COLUMNS, "actions");
 }
 
-function renderPrintRegistryRows(rows, columns, heading) {
-  return rows.filter(hasPrintableValue).map((row, index) => {
-    const fields = columns
-      .map((column) => ({ column, value: row[column.key] }))
-      .filter(({ value }) => hasPrintableValue(value));
-    return `
-      <section class="print-section">
-        <div class="print-section-header">
-          <span class="print-step">${index + 1}</span>
-          <h2>${escapeHTML(heading)}</h2>
-        </div>
-        <div class="print-fields">
-          ${fields.map(({ column, value }) => `
-            <div class="print-field">
-              <div class="print-field-label">${escapeHTML(column.label)}</div>
-              <div class="print-field-value">${escapeHTML(formatRegistryValue(column, value))}</div>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-    `;
-  }).join("");
+function renderPrintRegistryTable(rows, columns, view) {
+  const printableRows = rows.filter(hasPrintableValue);
+  return `
+    <table class="print-registry-table print-registry-table-${escapeAttr(view)}">
+      <thead>
+        <tr>
+          <th scope="col" class="print-table-number">№</th>
+          ${columns.map((column) => `<th scope="col">${escapeHTML(column.label)}</th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${printableRows.map((row, index) => `
+          <tr>
+            <th scope="row" class="print-table-number">${index + 1}</th>
+            ${columns.map((column) => `<td>${escapeHTML(formatRegistryValue(column, row[column.key]))}</td>`).join("")}
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 function printValue(value) {

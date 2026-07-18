@@ -18,7 +18,7 @@ const { chromium } = require("playwright");
   page.on("pageerror", (error) => errors.push(error.message));
 
   page.setDefaultTimeout(7000);
-  await page.goto(pathToFileURL(path.join(__dirname, "index.html")).href);
+  await page.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
@@ -215,11 +215,11 @@ const { chromium } = require("playwright");
 
   const actionMarkdown = await page.evaluate(() => formatRegistryMarkdown("actions"));
   const actionPrint = await page.evaluate(() => renderPrintRegistry("actions"));
-  if (!actionMarkdown.includes("## Строка 1") || !actionMarkdown.includes("Тревога 80%, стыд 60%") || !actionMarkdown.includes("## Строка 2")) {
-    throw new Error("Actions rows were not formatted in Markdown");
+  if (!actionMarkdown.includes("| № | Ситуация |") || !actionMarkdown.includes("Тревога 80%, стыд 60%<br>Каким буду: слабым") || !actionMarkdown.includes("| 2 |")) {
+    throw new Error("Actions rows were not formatted as a Markdown table");
   }
-  if (!actionPrint.includes("Строка действий") || !actionPrint.includes("Охранительное действие") || !actionPrint.includes("Написать коротко и отправить")) {
-    throw new Error("Actions entry was not included in PDF output");
+  if (!actionPrint.includes("print-registry-table-actions") || !actionPrint.includes("<thead>") || !actionPrint.includes("Охранительное действие") || !actionPrint.includes("Написать коротко и отправить") || actionPrint.includes("print-section-header")) {
+    throw new Error("Actions were not included as a table in PDF output");
   }
 
   if (process.env.SCREENSHOT_DIR) {
@@ -234,6 +234,9 @@ const { chromium } = require("playwright");
       fullPage: true
     });
     await page.setViewportSize({ width: 1280, height: 720 });
+  }
+  if (process.env.ACTIONS_PDF_OUTPUT) {
+    await saveCurrentPdf(page, process.env.ACTIONS_PDF_OUTPUT);
   }
 
   await page.locator("#triggersPageButton").click();
@@ -262,11 +265,11 @@ const { chromium } = require("playwright");
   }
   const triggerMarkdown = await page.evaluate(() => formatRegistryMarkdown("triggers"));
   const triggerPrint = await page.evaluate(() => renderPrintRegistry("triggers"));
-  if (!triggerMarkdown.includes("15%") || !triggerMarkdown.includes("Спросить дорогу у прохожего")) {
-    throw new Error("Trigger rows were not formatted in Markdown");
+  if (!triggerMarkdown.includes("| № | Ситуация / триггер |") || !triggerMarkdown.includes("15%") || !triggerMarkdown.includes("Спросить дорогу у прохожего")) {
+    throw new Error("Trigger rows were not formatted as a Markdown table");
   }
-  if (!triggerPrint.includes("Список триггеров") || !triggerPrint.includes("Иду только со знакомым")) {
-    throw new Error("Trigger rows were not included in PDF output");
+  if (!triggerPrint.includes("print-registry-table-triggers") || !triggerPrint.includes("<thead>") || !triggerPrint.includes("Список триггеров") || !triggerPrint.includes("Иду только со знакомым") || triggerPrint.includes("print-section-header")) {
+    throw new Error("Trigger rows were not included as a table in PDF output");
   }
   const entriesAfterRegistries = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]");
@@ -404,7 +407,7 @@ const { chromium } = require("playwright");
   }
 
   const migrationPage = await browser.newPage();
-  await migrationPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href);
+  await migrationPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
   await migrationPage.evaluate(() => {
     localStorage.clear();
     localStorage.setItem("stress-diary-app.entries.v1", JSON.stringify([{
@@ -438,7 +441,7 @@ const { chromium } = require("playwright");
   await migrationPage.close();
 
   const reportMigrationPage = await browser.newPage();
-  await reportMigrationPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href);
+  await reportMigrationPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
   await reportMigrationPage.evaluate(() => {
     localStorage.clear();
     localStorage.setItem("stress-diary-app.entries.v1", JSON.stringify([
@@ -498,7 +501,7 @@ const { chromium } = require("playwright");
   await reportMigrationPage.close();
 
   const importPage = await browser.newPage();
-  await importPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href);
+  await importPage.goto(pathToFileURL(path.join(__dirname, "index.html")).href, { waitUntil: "domcontentloaded", timeout: 15000 });
   await importPage.evaluate(() => {
     localStorage.clear();
     localStorage.setItem("stress-diary-app.entries.v1", JSON.stringify([{
