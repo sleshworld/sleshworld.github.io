@@ -1889,6 +1889,10 @@ input[type="range"] {
   gap: 6px;
 }
 
+.title-field.hidden {
+  display: none;
+}
+
 .title-field > span {
   color: var(--muted);
   font-size: 10px;
@@ -2633,7 +2637,8 @@ input[type="range"] {
     background: transparent;
     padding: 13pt 0 0;
     margin: 0 0 14pt;
-    break-inside: auto;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .print-section-header {
@@ -2680,8 +2685,8 @@ input[type="range"] {
     border-radius: 5pt;
     background: #ffffff;
     padding: 8pt 9pt;
-    break-inside: auto;
-    page-break-inside: auto;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .print-field-label {
@@ -2880,10 +2885,20 @@ input[type="range"] {
     overflow-wrap: anywhere;
   }
 
+  body.mobile-print .print-section {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
   body.mobile-print .print-field,
   body.mobile-print .print-field-value {
     max-width: 100%;
     overflow: visible;
+  }
+
+  body.mobile-print .print-field {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   body.mobile-print .print-field-value {

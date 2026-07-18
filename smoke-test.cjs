@@ -126,6 +126,10 @@ const { chromium } = require("playwright");
   await page.locator("#titleInput").fill("Smoke entry");
   await page.locator("textarea[data-path='fields.situation']").first().fill("Stress situation");
   await page.locator("button[data-chip-path='fields.coreFeeling']").first().click();
+  const customFeelingLabel = await page.locator("input[data-path='fields.coreFeeling']").getAttribute("aria-label");
+  if (customFeelingLabel !== "Какое чувство возникает?: другое значение") {
+    throw new Error(`Custom feeling input is not labeled: ${customFeelingLabel}`);
+  }
 
   await page.waitForFunction(() => {
     return document.querySelector(".entry-card.active .entry-title")?.textContent === "Smoke entry";
@@ -230,6 +234,10 @@ const { chromium } = require("playwright");
   }
   const scenarioDateLabel = await page.locator("#entryDateLabel").textContent();
   if (scenarioDateLabel !== "Дата выполнения") throw new Error(`Unexpected scenario date label: ${scenarioDateLabel}`);
+  const scenarioStepLabel = await page.locator("textarea[data-path='fields.steps.0']").getAttribute("aria-label");
+  if (scenarioStepLabel !== "Что я буду делать шаг за шагом?, строка 1") {
+    throw new Error(`Scenario step textarea is not labeled: ${scenarioStepLabel}`);
+  }
   await page.locator("#titleInput").fill("Сценарий: кофейня");
   await page.locator("textarea[data-path='fields.purpose']").fill("Научиться спокойно оставаться заметным");
   await page.locator("textarea[data-path='fields.triggerSituation']").fill("Заказать кофе и ждать в центре зала без телефона");
@@ -321,6 +329,9 @@ const { chromium } = require("playwright");
 
   await page.locator("#actionsPageButton").click();
   const actionsPageTitle = await page.locator("#registryTitle").textContent();
+  if (await page.locator("#titleField").isVisible()) {
+    throw new Error("Entry title field is visible on the actions registry");
+  }
   const actionsNavigationPressed = await page.locator("#actionsPageButton").getAttribute("aria-pressed");
   const actionsDuplicateHidden = await page.locator("#duplicateButton").evaluate((element) => element.classList.contains("hidden"));
   const actionsMetaHidden = await page.locator("#entryMetaRow").evaluate((element) => element.classList.contains("hidden"));
@@ -394,6 +405,9 @@ const { chromium } = require("playwright");
   }
 
   await page.locator("#triggersPageButton").click();
+  if (await page.locator("#titleField").isVisible()) {
+    throw new Error("Entry title field is visible on the triggers registry");
+  }
   const triggerHeaders = await page.locator(".actions-table-head [role='columnheader']").allTextContents();
   const expectedTriggerHeaders = [
     "Ситуация / триггер",
@@ -565,11 +579,14 @@ const { chromium } = require("playwright");
     throw new Error(`Unexpected Markdown file name: ${markdownFileName}`);
   }
 
+  await page.emulateMedia({ media: "print" });
   await page.evaluate(() => {
     window.__printCalled = false;
     window.__printTitle = "";
+    window.__printSectionBreak = "";
     window.print = () => {
       window.__printTitle = document.title;
+      window.__printSectionBreak = getComputedStyle(document.querySelector(".print-section")).breakInside;
       window.__printCalled = true;
       window.dispatchEvent(new Event("afterprint"));
     };
@@ -580,6 +597,11 @@ const { chromium } = require("playwright");
   if (printTitle !== expectedExportBaseName) {
     throw new Error(`Unexpected PDF title: ${printTitle}`);
   }
+  const desktopPrintSectionBreak = await page.evaluate(() => window.__printSectionBreak);
+  if (desktopPrintSectionBreak !== "avoid") {
+    throw new Error(`Desktop PDF sections may split across pages: ${desktopPrintSectionBreak}`);
+  }
+  await page.emulateMedia({ media: "screen" });
   const stillPrinting = await page.evaluate(() => document.body.classList.contains("printing"));
   const titleAfterPrint = await page.title();
   if (titleAfterPrint !== "Психологические практики") {
@@ -860,6 +882,7 @@ const { chromium } = require("playwright");
     window.print = () => {
       const meta = document.querySelector(".print-meta");
       const field = document.querySelector(".print-field");
+      const section = document.querySelector(".print-section");
       window.__mobilePrintState = {
         isMobilePrint: document.body.classList.contains("mobile-print"),
         appDisplay: getComputedStyle(document.querySelector(".app-shell")).display,
@@ -867,7 +890,8 @@ const { chromium } = require("playwright");
         toastText: elements.toast.textContent,
         printDisplay: getComputedStyle(elements.printRoot).display,
         metaColumns: getComputedStyle(meta).gridTemplateColumns,
-        fieldBreak: getComputedStyle(field).breakInside
+        fieldBreak: getComputedStyle(field).breakInside,
+        sectionBreak: getComputedStyle(section).breakInside
       };
     };
   });
@@ -881,7 +905,8 @@ const { chromium } = require("playwright");
     mobilePrintState.toastText ||
     mobilePrintState.printDisplay !== "block" ||
     mobilePrintState.metaColumns.trim().split(/\s+/).length !== 1 ||
-    mobilePrintState.fieldBreak !== "auto"
+    mobilePrintState.fieldBreak !== "auto" ||
+    mobilePrintState.sectionBreak !== "auto"
   ) {
     throw new Error(`Mobile entry print styles are incomplete: ${JSON.stringify(mobilePrintState)}`);
   }
@@ -985,6 +1010,7 @@ const { chromium } = require("playwright");
     notesSaved: savedNotes === notesText,
     markdownFileName,
     printTitle,
+    desktopPrintSectionBreak,
     stillPrinting
   }));
 })().catch((error) => {

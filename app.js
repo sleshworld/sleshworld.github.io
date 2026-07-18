@@ -1291,7 +1291,7 @@ function renderEntryListField(entry, field, values, rootPath) {
         ${items.map((item, index) => `
           <div class="entry-list-item">
             <span class="entry-list-index">${isChecklist ? "не" : index + 1}</span>
-            <textarea rows="${isChecklist ? 2 : 3}" data-path="${escapeAttr(rootPath)}.${escapeAttr(field.key)}.${index}" placeholder="${isChecklist ? "Какое действие исключаю?" : (field.key === "actualEvents" ? "Что произошло в этом эпизоде?" : "Что конкретно делаю на этом шаге?")}">${escapeHTML(item || "")}</textarea>
+            <textarea rows="${isChecklist ? 2 : 3}" data-path="${escapeAttr(rootPath)}.${escapeAttr(field.key)}.${index}" aria-label="${escapeAttr(field.label)}, строка ${index + 1}" placeholder="${isChecklist ? "Какое действие исключаю?" : (field.key === "actualEvents" ? "Что произошло в этом эпизоде?" : "Что конкретно делаю на этом шаге?")}">${escapeHTML(item || "")}</textarea>
             <div class="entry-list-controls" aria-label="Управление строкой ${index + 1}">
               <button class="list-icon-button" type="button" data-move-entry-list="-1" data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить выше" aria-label="Переместить строку ${index + 1} выше" ${index === 0 ? "disabled" : ""}>↑</button>
               <button class="list-icon-button" type="button" data-move-entry-list="1" data-list-root="${escapeAttr(rootPath)}" data-list-key="${escapeAttr(field.key)}" data-list-index="${index}" title="Переместить ниже" aria-label="Переместить строку ${index + 1} ниже" ${index === items.length - 1 ? "disabled" : ""}>↓</button>
@@ -1471,8 +1471,8 @@ function renderField(field, value = "", path) {
       <div class="field">
         <span>${escapeHTML(field.label)}</span>
         ${field.hint ? `<p class="hint">${escapeHTML(field.hint)}</p>` : ""}
-        <div class="chips">${chips}</div>
-        <input type="text" value="${escapeAttr(current)}" data-path="${escapeAttr(path)}" autocomplete="off" placeholder="Другое чувство">
+        <div class="chips" role="group" aria-label="${escapeAttr(field.label)}">${chips}</div>
+        <input type="text" value="${escapeAttr(current)}" data-path="${escapeAttr(path)}" autocomplete="off" aria-label="${escapeAttr(field.label)}: другое значение" placeholder="Другое чувство">
       </div>
     `;
   }
