@@ -1912,7 +1912,7 @@ function renderPrintRegistry(view) {
     <article class="print-entry print-registry print-registry-${escapeAttr(view)}">
       <header class="print-cover">
         <div class="print-cover-top">
-          <span class="print-kicker">Стресс-дневник</span>
+          <span class="print-kicker">Практика · Стресс-дневник</span>
           <span class="print-type">${escapeHTML(meta.label)}</span>
         </div>
         <h1>${escapeHTML(meta.title)}</h1>
@@ -1958,8 +1958,8 @@ function renderPrintEntry(entry) {
     ? `
       <section class="print-section print-decision">
         <div class="print-section-header">
-          <span class="print-step">после пункта 6</span>
           <h2>Переход к рационализации</h2>
+          <span class="print-step">после пункта 6</span>
         </div>
         <div class="print-field">
           <div class="print-field-label">Действие решало реальную проблему?</div>
@@ -1969,12 +1969,11 @@ function renderPrintEntry(entry) {
     `
     : "";
   const tags = String(entry.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean);
-  const emptyNote = `<p class="print-note">Пустые поля скрыты, чтобы экспорт оставался коротким и читабельным.</p>`;
   return `
     <article class="print-entry">
       <header class="print-cover">
         <div class="print-cover-top">
-          <span class="print-kicker">Стресс-дневник</span>
+          <span class="print-kicker">Практика · Стресс-дневник</span>
           <span class="print-type">${escapeHTML(TYPE_META[entry.type].label)}</span>
         </div>
         <h1>${escapeHTML(entry.title || TYPE_META[entry.type].defaultTitle)}</h1>
@@ -1996,7 +1995,6 @@ function renderPrintEntry(entry) {
         </div>
         ${tags.length ? `<div class="print-tags">${tags.map((tag) => `<span>${escapeHTML(tag)}</span>`).join("")}</div>` : ""}
       </header>
-      ${emptyNote}
       ${body}
       ${decision}
       ${rationalization}
@@ -2011,8 +2009,8 @@ function renderPrintNotes(entry) {
   return `
     <section class="print-section">
       <div class="print-section-header">
-        <span class="print-step">после</span>
         <h2>Заметки</h2>
+        <span class="print-step">после</span>
       </div>
       <div class="print-field">
         <div class="print-field-label">Впечатления и инсайты после заполнения</div>
@@ -2033,8 +2031,8 @@ function renderPrintSections(sections, values, entry) {
     return `
       <section class="print-section">
         <div class="print-section-header">
-          <span class="print-step">${escapeHTML(section.index)}</span>
           <h2>${escapeHTML(section.title)}</h2>
+          <span class="print-step">${escapeHTML(section.index)}</span>
         </div>
         <div class="print-fields">
           ${fields.map(({ field, value }) => `

@@ -59,6 +59,31 @@ const { chromium } = require("playwright");
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
   });
 
+  if (process.env.DIAGNOSTIC_PDF_OUTPUT) {
+    await page.locator("#titleInput").fill("Диагностика: выступление");
+    await page.locator("textarea[data-path='fields.situation']").fill("На встрече нужно представить свою работу перед незнакомой командой.");
+    await page.locator("textarea[data-path='fields.bodySensations']").fill("Сжимается грудь, напряжены плечи, становится жарко.");
+    await page.locator("textarea[data-path='fields.feelingName']").fill("Тревога и стыд");
+    await page.locator("textarea[data-path='fields.amplification']").fill("Я собьюсь, повиснет тишина, и все заметят мою растерянность.");
+    await page.locator("textarea[data-path='fields.selfDefinition']").fill("Некомпетентным");
+    await page.locator("textarea[data-path='fields.amplificationMore']").fill("Руководитель начнет задавать вопросы, на которые я не смогу ответить.");
+    await page.locator("textarea[data-path='fields.selfDefinitionStronger']").fill("Беспомощным");
+    await page.locator("textarea[data-path='fields.otherDefinitions']").fill("Критичными и более уверенными");
+    await page.locator("textarea[data-path='fields.worldDefinition']").fill("Требовательным и небезопасным для ошибок");
+    await page.locator("textarea[data-path='fields.amplifierPerson']").fill("Строгий учитель из школы");
+    await page.locator("textarea[data-path='fields.amplifierAction']").fill("Скажет, что я снова плохо подготовился.");
+    await page.locator("textarea[data-path='fields.worseVariant']").fill("Знакомые коллеги будут обсуждать выступление после встречи.");
+    await page.locator("textarea[data-path='fields.childhoodMemory']").fill("Ответ у доски, когда я забыл следующую фразу и услышал смех.");
+    await saveCurrentPdf(page, process.env.DIAGNOSTIC_PDF_OUTPUT);
+    await page.evaluate(() => {
+      const diagnosticId = getActiveEntry().id;
+      entries = entries.filter((entry) => entry.id !== diagnosticId);
+      activeId = entries[0]?.id || "";
+      save();
+      render();
+    });
+  }
+
   await page.locator("#newScenarioButton").click();
   const savedAfterBlankScenario = await page.evaluate(() => {
     return JSON.parse(localStorage.getItem("stress-diary-app.entries.v1") || "[]").length;
@@ -374,6 +399,24 @@ const { chromium } = require("playwright");
   const printWithNotes = await page.evaluate(() => renderPrintEntry(getActiveEntry()));
   if (!printWithNotes.includes("Заметки") || !printWithNotes.includes("Инсайт: я быстрее замечаю тревогу.")) {
     throw new Error("Notes were not included in PDF export");
+  }
+
+  if (process.env.DIARY_PDF_OUTPUT) {
+    await page.locator("textarea[data-path='fields.bodySensations']").fill("Тяжесть в груди и напряжение в челюсти.");
+    await page.locator("textarea[data-path='fields.bodyFeelingName']").fill("Тревога");
+    await page.locator("textarea[data-path='fields.thoughtsFlow']").fill("Я не успею. Результат окажется слабым. Все поймут, что я не справляюсь.");
+    await page.locator("textarea[data-path='fields.worstThought']").fill("Я не справлюсь и разочарую команду.");
+    await page.locator("textarea[data-path='fields.selfDefinition']").fill("Несостоятельным");
+    await page.locator("textarea[data-path='fields.otherDefinitions']").fill("Требовательными и оценивающими");
+    await page.locator("textarea[data-path='fields.worldDefinition']").fill("Местом, где нельзя ошибаться");
+    await page.locator("textarea[data-path='fields.behavior']").fill("Откладываю задачу, перепроверяю мелочи и открываю соцсети.");
+    await page.locator("textarea[data-path='fields.problemSolved']").fill("Временно снижало тревогу, но реальную задачу не решало.");
+    await page.locator("textarea[data-path='rationalization.evidenceFor']").fill("Раньше я действительно срывал один похожий срок.");
+    await page.locator("textarea[data-path='rationalization.evidenceAgainst']").fill("Большинство задач я завершал, а коллеги помогали уточнить требования.");
+    await page.locator("textarea[data-path='rationalization.alternativeView']").fill("Тревога говорит о важности задачи, а не доказывает будущий провал.");
+    await page.locator("textarea[data-path='rationalization.realisticOutcome']").fill("Я сделаю рабочую версию, попрошу обратную связь и поправлю детали.");
+    await page.locator("textarea[data-path='rationalization.nextAction']").fill("Открыть задачу и за 20 минут собрать первый черновик.");
+    await saveCurrentPdf(page, process.env.DIARY_PDF_OUTPUT);
   }
 
   const expectedExportBaseName = await page.evaluate(() => formatExportBaseName(getActiveEntry()));

@@ -2072,7 +2072,7 @@ input[type="range"] {
 
   .print-cover {
     border: 0;
-    border-bottom: 2pt solid #111111;
+    border-bottom: 1.5pt solid #111111;
     border-radius: 0;
     background: #ffffff;
     color: #111111;
@@ -2089,27 +2089,47 @@ input[type="range"] {
     margin-bottom: 14pt;
   }
 
-  .print-kicker,
+  .print-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 7pt;
+    border: 0;
+    padding: 0;
+    color: #666666;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .print-kicker::before {
+    content: "md\A psy";
+    display: inline-grid;
+    width: 26pt;
+    height: 26pt;
+    place-content: center;
+    border-radius: 5pt;
+    background: #111111;
+    color: #ffffff;
+    font-size: 6.5pt;
+    font-weight: 700;
+    line-height: 0.85;
+    text-align: center;
+    white-space: pre;
+  }
+
   .print-type {
     display: inline-block;
-    border: 1pt solid #111111;
+    flex: 0 0 auto;
+    border: 1pt solid #ff8562;
     border-radius: 999pt;
+    background: #ff8562;
+    color: #111111;
     padding: 4pt 8pt;
     font-size: 8pt;
     font-weight: 700;
     letter-spacing: 0;
     text-transform: uppercase;
-  }
-
-  .print-kicker {
-    background: #111111;
-    color: #ffffff;
-  }
-
-  .print-type {
-    background: #ff8562;
-    border-color: #ff8562;
-    color: #111111;
   }
 
   .print-entry h1 {
@@ -2118,7 +2138,7 @@ input[type="range"] {
     font-weight: 700;
     line-height: 1.02;
     letter-spacing: 0;
-    text-transform: uppercase;
+    text-transform: none;
   }
 
   .print-meta {
@@ -2130,7 +2150,7 @@ input[type="range"] {
   .print-meta-item {
     border: 1pt solid #dedede;
     border-radius: 6pt;
-    background: #f7f7f7;
+    background: #fafafa;
     padding: 7pt 8pt;
   }
 
@@ -2195,22 +2215,23 @@ input[type="range"] {
   }
 
   .print-section {
-    border: 1pt solid #d8d8d8;
-    border-radius: 6pt;
-    background: #ffffff;
-    padding: 9pt;
-    margin: 0 0 9pt;
-    break-inside: avoid;
+    border: 0;
+    border-top: 1pt solid #d8d8d8;
+    border-radius: 0;
+    background: transparent;
+    padding: 13pt 0 0;
+    margin: 0 0 14pt;
+    break-inside: auto;
   }
 
   .print-section-header {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 7pt;
     align-items: center;
-    border-bottom: 1pt solid #dedede;
-    padding-bottom: 6pt;
-    margin-bottom: 8pt;
+    border-bottom: 0;
+    padding-bottom: 0;
+    margin-bottom: 9pt;
     break-after: avoid;
   }
 
@@ -2220,18 +2241,18 @@ input[type="range"] {
     min-height: 22pt;
     align-items: center;
     justify-content: center;
-    border: 1pt solid #111111;
+    border: 0;
     border-radius: 999pt;
     background: #111111;
     color: #ffffff;
-    padding: 3pt 6pt;
+    padding: 4pt 7pt;
     font-size: 8pt;
     font-weight: 700;
   }
 
   .print-entry h2 {
     margin: 0;
-    font-size: 15pt;
+    font-size: 16pt;
     font-weight: 700;
     line-height: 1.08;
     text-transform: uppercase;
@@ -2239,20 +2260,20 @@ input[type="range"] {
 
   .print-fields {
     display: grid;
-    gap: 7pt;
+    gap: 6pt;
   }
 
   .print-field {
-    border-left: 4pt solid #ff8562;
+    border: 1pt solid #dedede;
     border-radius: 5pt;
-    background: #f7f7f7;
-    padding: 7pt 8pt;
+    background: #ffffff;
+    padding: 8pt 9pt;
     break-inside: avoid;
   }
 
   .print-field-label {
     margin-bottom: 4pt;
-    color: #111111;
+    color: #666666;
     font-size: 8pt;
     font-weight: 700;
     line-height: 1.25;
@@ -2269,6 +2290,11 @@ input[type="range"] {
   }
 
   .print-decision {
+    background: transparent;
+  }
+
+  .print-decision .print-field {
+    border-color: #ffb39c;
     background: #fff7f3;
   }
 
