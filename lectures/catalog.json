@@ -18,9 +18,29 @@
               "aspectRatio": 1.33375
             }
           ]
+        },
+        {
+          "id": "ks-section-d1123b95-1ba8-4e23-bed5-d52e6323c438",
+          "title": "Июнь (записи)",
+          "entries": [
+            {
+              "id": "ks-47eee9ae-de6d-4b8d-b30b-9db6df4598a7",
+              "kind": "video",
+              "title": "Лекция 346",
+              "embedUrl": "https://kinescope.io/embed/9Tc9FK6bzMf1DjezYNhZNp",
+              "aspectRatio": 1.33375
+            },
+            {
+              "id": "ks-56ee37a9-6134-4176-8669-309b10fd6457",
+              "kind": "video",
+              "title": "Лекция 345",
+              "embedUrl": "https://kinescope.io/embed/bJB3aoXdsLbFW1gvu1wnyT",
+              "aspectRatio": 1.33375
+            }
+          ]
         }
       ]
     }
   ],
-  "updatedAt": "2026-07-20T14:01:54.621Z"
+  "updatedAt": "2026-07-20T14:16:18.709Z"
 }
