@@ -1,4 +1,26 @@
 {
   "version": 1,
-  "courses": []
+  "courses": [
+    {
+      "id": "lectorium-3",
+      "title": "Лекторий 3.0",
+      "description": "Лекции о психологии, отношениях и здоровье.",
+      "sections": [
+        {
+          "id": "july-recordings",
+          "title": "Июль (записи)",
+          "entries": [
+            {
+              "id": "ks-422fe1e1-fc6e-4d6e-9008-459e250c66c9",
+              "kind": "video",
+              "title": "Лекция Бла Бла Бла",
+              "embedUrl": "https://kinescope.io/embed/9b3aFjhQ767FYwH19cvH2k",
+              "aspectRatio": 1.33375
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updatedAt": "2026-07-20T14:01:54.621Z"
 }
