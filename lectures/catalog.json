@@ -16,6 +16,13 @@
               "title": "Лекция Бла Бла Бла",
               "embedUrl": "https://kinescope.io/embed/9b3aFjhQ767FYwH19cvH2k",
               "aspectRatio": 1.33375
+            },
+            {
+              "id": "ks-5cbe6941-f918-4dfb-b5f6-92443a3580b0",
+              "kind": "video",
+              "title": "Лекция 345",
+              "embedUrl": "https://kinescope.io/embed/cseStJbbRbQeGfLc6haPKf",
+              "aspectRatio": 1.33375
             }
           ]
         },
@@ -40,7 +47,74 @@
           ]
         }
       ]
+    },
+    {
+      "id": "kukuha-6",
+      "title": "Пойми Кукуха 6",
+      "description": "Основная программа с занятиями Доктора Бутузова и Психолога Воробьёва.",
+      "sections": [
+        {
+          "id": "butuzov",
+          "title": "Доктор Бутузов",
+          "entries": [
+            {
+              "id": "ks-d2243fa2-6bf8-4f55-a089-034ae4acea9c",
+              "kind": "video",
+              "title": "Лекция 346",
+              "embedUrl": "https://kinescope.io/embed/rX43rq5jjJ7RrUNZy2d7zs",
+              "aspectRatio": 1.33375
+            },
+            {
+              "id": "ks-cb0ecffa-5302-4fa0-b825-ec33ad8dc3fc",
+              "kind": "video",
+              "title": "Лекция 345",
+              "embedUrl": "https://kinescope.io/embed/r5jsaaNg9ruuKTexB7epfd",
+              "aspectRatio": 1.33375
+            }
+          ]
+        },
+        {
+          "id": "vorobyev",
+          "title": "Психолог Воробьёв",
+          "entries": [
+            {
+              "id": "ks-1d4acd2c-1d16-4a98-9cdc-4150f821daf5",
+              "kind": "video",
+              "title": "Лекция Бла Бла Бла 1",
+              "embedUrl": "https://kinescope.io/embed/4BN1torpqgdVx81SPL3dCM",
+              "aspectRatio": 1.33375
+            },
+            {
+              "id": "ks-da40ce87-ff6a-4e74-8c6d-640131f208b8",
+              "kind": "video",
+              "title": "Лекция Бла Бла Бла 2",
+              "embedUrl": "https://kinescope.io/embed/sX9AgndjgCLLAjsGSXsjSu",
+              "aspectRatio": 1.33375
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pt-26",
+      "title": "ПТ 26 (противотревожный вебинар)",
+      "description": "Записи о тревоге, психотерапии и здоровье.",
+      "sections": [
+        {
+          "id": "recordings",
+          "title": "Записи",
+          "entries": [
+            {
+              "id": "ks-f79ef19b-eb1a-4f8d-b3cf-76694f016836",
+              "kind": "video",
+              "title": "Тревога и психотерапия. Доктор Бутузов. 1 день.",
+              "embedUrl": "https://kinescope.io/embed/wztYusxZ8Hz8vSd898iAcq",
+              "aspectRatio": 1.33375
+            }
+          ]
+        }
+      ]
     }
   ],
-  "updatedAt": "2026-07-20T14:16:18.709Z"
+  "updatedAt": "2026-07-20T14:25:05.187Z"
 }
