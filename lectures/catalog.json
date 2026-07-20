@@ -114,7 +114,27 @@
           ]
         }
       ]
+    },
+    {
+      "id": "archive-2024",
+      "title": "Архив 2024",
+      "description": "Архив лекций за 2024 год.",
+      "sections": [
+        {
+          "id": "ks-section-d6d82a8b-76c3-485a-ba15-2487dcaf5978",
+          "title": "Записи",
+          "entries": [
+            {
+              "id": "ks-b9e89909-9ce1-400e-877a-be90e515b454",
+              "kind": "video",
+              "title": "Лекция 345",
+              "embedUrl": "https://kinescope.io/embed/oXuCaRW98LT1SRrgcDBbQC",
+              "aspectRatio": 1.33375
+            }
+          ]
+        }
+      ]
     }
   ],
-  "updatedAt": "2026-07-20T14:25:05.187Z"
+  "updatedAt": "2026-07-20T16:52:08.033Z"
 }
