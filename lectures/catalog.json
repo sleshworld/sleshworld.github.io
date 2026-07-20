@@ -116,6 +116,26 @@
       ]
     },
     {
+      "id": "archive-2025",
+      "title": "Архив 2025",
+      "description": "Архив лекций за 2025 год.",
+      "sections": [
+        {
+          "id": "ks-section-ec6a0df1-9de8-4af9-8a1f-9b5d853cd933",
+          "title": "Записи",
+          "entries": [
+            {
+              "id": "ks-6e5d99d8-ff5a-4bef-b148-c28e7af2cc12",
+              "kind": "video",
+              "title": "Лекция 345",
+              "embedUrl": "https://kinescope.io/embed/eCrZXNMUSw2UJmX11gymPL",
+              "aspectRatio": 1.33375
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "archive-2024",
       "title": "Архив 2024",
       "description": "Архив лекций за 2024 год.",
@@ -134,7 +154,27 @@
           ]
         }
       ]
+    },
+    {
+      "id": "webinars",
+      "title": "Вебинары",
+      "description": "Тематические вебинары специалистов.",
+      "sections": [
+        {
+          "id": "ks-section-955a01fe-24ea-4ed1-95e2-ec6f1252e4ec",
+          "title": "Записи",
+          "entries": [
+            {
+              "id": "ks-f23ce5cc-e20a-4d7c-8504-4afced4107b5",
+              "kind": "video",
+              "title": "Лекция 345",
+              "embedUrl": "https://kinescope.io/embed/vUVSD7oFXHjTxAgvvEQUNZ",
+              "aspectRatio": 1.33375
+            }
+          ]
+        }
+      ]
     }
   ],
-  "updatedAt": "2026-07-20T16:52:08.033Z"
+  "updatedAt": "2026-07-20T19:11:03.936Z"
 }
